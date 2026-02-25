@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 "use client";
 
 import Image from "next/image";
@@ -14,9 +16,7 @@ import { auth } from "../lib/firebase";
 export default function AuthPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-
-  // ✅ redirect MUST be inside component
- const redirect = searchParams.get("redirect") || "/dashboard";
+  const redirect = searchParams.get("redirect") || "/dashboard";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -24,7 +24,6 @@ export default function AuthPage() {
 
   async function loginGoogle() {
     try {
-      setMsg("Signing in...");
       const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
       router.push(redirect);
@@ -35,7 +34,6 @@ export default function AuthPage() {
 
   async function loginEmail() {
     try {
-      setMsg("Signing in...");
       await signInWithEmailAndPassword(auth, email, password);
       router.push(redirect);
     } catch {
@@ -45,75 +43,48 @@ export default function AuthPage() {
 
   async function signupEmail() {
     try {
-      setMsg("Creating account...");
       await createUserWithEmailAndPassword(auth, email, password);
       router.push(redirect);
     } catch {
-      setMsg("Signup failed. Try a stronger password.");
+      setMsg("Signup failed.");
     }
   }
 
   return (
-    <div className="page-fade min-h-screen flex items-center justify-center bg-white px-6 dark:bg-black">
-      <div className="w-full max-w-sm space-y-5">
-        <div className="flex justify-center">
-          <Image src="/logo.png" alt="InSyncs logo" width={64} height={64} />
-        </div>
+    <div className="min-h-screen flex items-center justify-center bg-white dark:bg-black px-6">
+      <div className="w-full max-w-sm space-y-4">
+        <Image src="/logo.png" alt="logo" width={64} height={64} />
 
-        <h1 className="text-center text-3xl font-semibold tracking-tight text-black dark:text-white">
-          InSyncs
-        </h1>
-
-        <p className="text-center text-sm text-zinc-500 dark:text-zinc-400">
-          No noise. Pure consistency.
-        </p>
-
-        {msg && (
-          <div className="rounded-2xl border border-zinc-200 p-3 text-sm dark:border-zinc-800 text-zinc-600 dark:text-zinc-300">
-            {msg}
-          </div>
-        )}
-
-        {/* Google */}
         <button
           onClick={loginGoogle}
-          className="w-full rounded-full bg-black px-4 py-3 text-white font-medium hover:opacity-90 dark:bg-white dark:text-black"
+          className="w-full rounded-full bg-black py-3 text-white"
         >
           Continue with Google
         </button>
 
-        <div className="text-center text-xs text-zinc-400">OR</div>
+        <input
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="Email"
+          className="w-full border rounded-xl p-3"
+        />
+        <input
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="Password"
+          type="password"
+          className="w-full border rounded-xl p-3"
+        />
 
-        {/* Email/Password */}
-        <div className="space-y-3">
-          <input
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="Email"
-            className="w-full rounded-2xl border border-zinc-200 bg-transparent px-4 py-3 text-sm outline-none dark:border-zinc-800"
-          />
-          <input
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Password"
-            type="password"
-            className="w-full rounded-2xl border border-zinc-200 bg-transparent px-4 py-3 text-sm outline-none dark:border-zinc-800"
-          />
+        <button onClick={loginEmail} className="w-full border rounded-full p-3">
+          Sign In
+        </button>
 
-          <button
-            onClick={loginEmail}
-            className="w-full rounded-full border border-zinc-200 px-4 py-3 font-medium hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900"
-          >
-            Sign in with Email
-          </button>
+        <button onClick={signupEmail} className="w-full border rounded-full p-3">
+          Create Account
+        </button>
 
-          <button
-            onClick={signupEmail}
-            className="w-full rounded-full border border-zinc-200 px-4 py-3 font-medium hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900"
-          >
-            Create Account
-          </button>
-        </div>
+        {msg && <p className="text-sm">{msg}</p>}
       </div>
     </div>
   );

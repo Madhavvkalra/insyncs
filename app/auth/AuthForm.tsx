@@ -9,7 +9,7 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
 } from "firebase/auth";
-import { auth } from "../lib/firebase"; // Make sure this path points to your firebase file
+import { auth } from "../lib/firebase";
 
 export default function AuthForm() {
   const router = useRouter();
@@ -29,8 +29,10 @@ export default function AuthForm() {
       const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
       router.push("/dashboard");
-    } catch (error) {
-      setMsg("Google sign-in failed.");
+    } catch (error: any) {
+      console.error("Google Auth Error:", error);
+      // This will now print the EXACT Firebase error to your screen
+      setMsg(`Google Error: ${error.message}`); 
     }
   }
 
@@ -38,8 +40,9 @@ export default function AuthForm() {
     try {
       await signInWithEmailAndPassword(auth, email, password);
       router.push("/dashboard");
-    } catch (error) {
-      setMsg("Invalid email or password.");
+    } catch (error: any) {
+      console.error("Email Login Error:", error);
+      setMsg(`Login Error: ${error.message}`);
     }
   }
 
@@ -47,8 +50,9 @@ export default function AuthForm() {
     try {
       await createUserWithEmailAndPassword(auth, email, password);
       router.push("/dashboard");
-    } catch (error) {
-      setMsg("Signup failed.");
+    } catch (error: any) {
+      console.error("Signup Error:", error);
+      setMsg(`Signup Error: ${error.message}`);
     }
   }
 
@@ -63,6 +67,7 @@ export default function AuthForm() {
           InSyncs
         </h1>
 
+        {/* The error message will now show the detailed Firebase response */}
         {msg && <p className="text-sm text-center text-red-500">{msg}</p>}
 
         <button
@@ -78,7 +83,7 @@ export default function AuthForm() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="Email"
-          className="w-full rounded-xl border p-3 bg-transparent"
+          className="w-full rounded-xl border p-3 bg-transparent text-black dark:text-white"
         />
 
         <input
@@ -86,7 +91,7 @@ export default function AuthForm() {
           onChange={(e) => setPassword(e.target.value)}
           placeholder="Password"
           type="password"
-          className="w-full rounded-xl border p-3 bg-transparent"
+          className="w-full rounded-xl border p-3 bg-transparent text-black dark:text-white"
         />
 
         <button

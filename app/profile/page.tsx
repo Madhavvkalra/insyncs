@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { collection, getDocs } from "firebase/firestore";
 import { auth, db } from "../lib/firebase";
 import { useRouter } from "next/navigation";
 import { signOut } from "firebase/auth";
@@ -20,7 +20,6 @@ export default function ProfilePage() {
   const [circlesCount, setCirclesCount] = useState(0);
 
   useEffect(() => {
-    // FIXED: Using onAuthStateChanged so the page doesn't break if the user hits refresh
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
       if (!user) {
         router.push("/auth");
@@ -34,8 +33,6 @@ export default function ProfilePage() {
         let streaks = 0;
         let circles = 0;
 
-        // Note: For large apps, a Firestore Collection Group query is faster, 
-        // but this works perfectly for your current scale!
         const circlesSnap = await getDocs(collection(db, "circles"));
 
         for (const circleDoc of circlesSnap.docs) {
@@ -74,20 +71,20 @@ export default function ProfilePage() {
     <div className="min-h-screen bg-zinc-50 dark:bg-black px-6 py-10 text-black dark:text-white selection:bg-zinc-300 dark:selection:bg-zinc-700">
       <div className="mx-auto max-w-md space-y-8 animate-[fadeIn_0.5s_ease-out]">
         
-        {/* Header Navigation */}
-        <div className="flex items-center justify-between pt-2">
+        {/* UPDATED: Header Navigation */}
+        <div className="relative flex items-center justify-center pt-2 h-14">
           <button
             onClick={() => router.push("/dashboard")}
-            className="flex items-center gap-2 text-zinc-500 hover:text-black dark:hover:text-white transition-colors active:scale-95"
+            className="absolute left-0 w-12 h-12 flex items-center justify-center rounded-full bg-black text-white shadow-lg transition-all duration-200 hover:bg-zinc-800 hover:-translate-y-1 hover:shadow-xl active:scale-90 active:translate-y-0 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
+            aria-label="Go back"
           >
-            <span className="text-xl">←</span> Back
+            <span className="text-2xl leading-none -mt-1 font-light">←</span>
           </button>
+          
           <h1 className="text-xl font-semibold tracking-tight">Profile</h1>
-          <div className="w-10"></div> {/* Spacer for perfect centering */}
         </div>
 
         {loading ? (
-          // Skeleton Loading UI (Matches the exact layout of the real content)
           <div className="space-y-6 animate-pulse mt-8">
             <div className="flex flex-col items-center space-y-4">
               <div className="w-24 h-24 rounded-full bg-zinc-200 dark:bg-zinc-800"></div>
@@ -101,7 +98,6 @@ export default function ProfilePage() {
           </div>
         ) : (
           <>
-            {/* Identity / Avatar Section */}
             <div className="flex flex-col items-center mt-6 mb-10">
               <div className="w-24 h-24 flex items-center justify-center rounded-full bg-black dark:bg-white text-white dark:text-black text-4xl font-bold mb-4 shadow-lg">
                 {email ? email.charAt(0).toUpperCase() : "👤"}
@@ -112,31 +108,24 @@ export default function ProfilePage() {
               <p className="text-lg font-medium mt-1">{email}</p>
             </div>
 
-            {/* Stats Grid */}
             <div className="grid grid-cols-2 gap-4">
-              {/* Circles Card */}
               <div className="rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-6 flex flex-col items-center justify-center transition-all hover:border-zinc-300 dark:hover:border-zinc-700 hover:shadow-sm">
                 <p className="text-4xl font-bold mb-2">{circlesCount}</p>
                 <p className="text-xs text-zinc-500 font-medium uppercase tracking-wider">Circles</p>
               </div>
 
-              {/* Cycles Card */}
               <div className="rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-6 flex flex-col items-center justify-center transition-all hover:border-zinc-300 dark:hover:border-zinc-700 hover:shadow-sm">
                 <p className="text-4xl font-bold mb-2">{totalCycles} <span className="text-2xl">🏆</span></p>
                 <p className="text-xs text-zinc-500 font-medium uppercase tracking-wider">Cycles</p>
               </div>
 
-              {/* Hero Streak Card */}
               <div className="relative overflow-hidden rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-8 flex flex-col items-center justify-center col-span-2 transition-all hover:border-orange-200 dark:hover:border-orange-900/50 hover:shadow-md group">
-                {/* Subtle background glow effect on hover */}
                 <div className="absolute inset-0 bg-gradient-to-b from-transparent to-orange-50/50 dark:to-orange-900/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                
                 <p className="text-6xl font-black mb-3 z-10">{activeStreaks} <span className="text-5xl drop-shadow-md">🔥</span></p>
                 <p className="text-sm text-zinc-500 font-medium uppercase tracking-widest z-10">Active Streak Power</p>
               </div>
             </div>
 
-            {/* Actions */}
             <div className="space-y-3 pt-6">
               <button
                 onClick={handleLogout}

@@ -38,7 +38,6 @@ export default function DashboardPage() {
   }, [router]);
 
   return (
-    // ADDED: pb-32 so the list has enough space to scroll past the floating button
     <div className="min-h-screen p-6 pb-32 bg-zinc-50 dark:bg-black text-black dark:text-white selection:bg-zinc-300 dark:selection:bg-zinc-700">
       <div className="max-w-md mx-auto space-y-8 animate-[fadeIn_0.5s_ease-out]">
         
@@ -72,7 +71,7 @@ export default function DashboardPage() {
               </p>
             </div>
           ) : (
-                        circles.map((circle) => (
+            circles.map((circle) => (
               <div
                 key={circle.id}
                 onClick={() => router.push(`/circle/${circle.id}`)}
@@ -85,7 +84,7 @@ export default function DashboardPage() {
                   <div>
                     <h2 className="font-semibold text-lg flex items-center gap-2">
                       {circle.name}
-                      {/* NEW: Show a pending badge if there is only 1 member! */}
+                      {/* Show a pending badge if there is only 1 member! */}
                       {circle.members?.length < 2 && (
                         <span className="text-[10px] bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400 px-2 py-0.5 rounded-full uppercase tracking-wider font-bold">
                           Waiting
@@ -103,19 +102,15 @@ export default function DashboardPage() {
                 </span>
               </div>
             ))
-
-            ))
           )}
         </div>
       </div>
 
       {/* FIXED FLOATING ACTION BUTTON */}
-      {/* Pinned to the bottom, perfectly centered with the max-w-md container */}
       <div className="fixed bottom-8 left-0 right-0 px-6 flex justify-center z-50 pointer-events-none">
         <div className="w-full max-w-md pointer-events-auto">
           <button
             onClick={() => router.push("/create")}
-            // Added shadow-2xl and shadow-black/20 to make it pop off the background
             className="w-full flex items-center justify-center gap-2 rounded-2xl bg-black py-4 text-white font-medium shadow-[0_8px_30px_rgb(0,0,0,0.12)] transition-all duration-200 hover:bg-zinc-800 hover:-translate-y-1 hover:shadow-[0_8px_40px_rgb(0,0,0,0.2)] active:scale-95 active:translate-y-0 dark:bg-white dark:text-black dark:shadow-[0_8px_30px_rgba(255,255,255,0.15)] dark:hover:bg-zinc-200"
           >
             <span className="text-xl leading-none -mt-1">+</span> Create New Circle

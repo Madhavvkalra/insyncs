@@ -7,6 +7,7 @@ import {
   getDoc,
   setDoc,
   onSnapshot,
+  collection
 } from "firebase/firestore";
 import { db, auth } from "../../lib/firebase";
 
@@ -21,10 +22,13 @@ export default function CirclePage() {
   const [checkedInToday, setCheckedInToday] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // Stats State
+  // My Stats State
   const [streak, setStreak] = useState(0);
   const [cycleDay, setCycleDay] = useState(0);
   const [completedCycles, setCompletedCycles] = useState(0);
+  
+  // NEW: Partner's Stats State
+  const [partnerStats, setPartnerStats] = useState<any>(null);
 
   const todayKey = new Date().toISOString().split("T")[0];
 
@@ -34,43 +38,48 @@ export default function CirclePage() {
     return d.toISOString().split("T")[0];
   }
 
-  // 1. LIVE LISTENER: Watch the circle for updates (like a partner joining)
+  // 1. LIVE LISTENER: Watch the circle document
   useEffect(() => {
     if (!id) return;
-    
-    // onSnapshot automatically updates 'circle' the second the database changes
     const unsubscribeCircle = onSnapshot(doc(db, "circles", id), (snap) => {
       if (snap.exists()) {
         setCircle({ id: snap.id, ...snap.data() });
       } else {
-        router.push("/dashboard"); // Circle was deleted or doesn't exist
+        router.push("/dashboard"); 
       }
       setLoading(false);
     });
-
     return () => unsubscribeCircle();
   }, [id, router]);
 
-  // 2. LOAD PROGRESS: Fetch the current user's personal habit stats
+  // 2. NEW LIVE LISTENER: Watch the members subcollection for REAL-TIME stats
   useEffect(() => {
-    const unsubscribeAuth = auth.onAuthStateChanged(async (user) => {
+    const unsubscribeAuth = auth.onAuthStateChanged((user) => {
       if (!user) {
         router.push("/auth");
         return;
       }
 
       if (id) {
-        const memberSnap = await getDoc(doc(db, "circles", id, "members", user.uid));
-        if (memberSnap.exists()) {
-          const data = memberSnap.data();
-          setStreak(data.streak || 0);
-          setCycleDay(data.cycleDay || 0);
-          setCompletedCycles(data.completedCycles || 0);
-
-          if (data.lastCheckin === todayKey) {
-            setCheckedInToday(true);
+        // This listens to BOTH you and your partner. If they check in, it updates instantly!
+        const unsubscribeMembers = onSnapshot(collection(db, "circles", id, "members"), (snap) => {
+          const membersData = snap.docs.map(doc => ({ uid: doc.id, ...doc.data() }));
+          
+          // Find MY stats
+          const me = membersData.find(m => m.uid === user.uid);
+          if (me) {
+            setStreak(me.streak || 0);
+            setCycleDay(me.cycleDay || 0);
+            setCompletedCycles(me.completedCycles || 0);
+            setCheckedInToday(me.lastCheckin === todayKey);
           }
-        }
+
+          // Find PARTNER'S stats
+          const partner = membersData.find(m => m.uid !== user.uid);
+          setPartnerStats(partner || null);
+        });
+
+        return () => unsubscribeMembers();
       }
     });
 
@@ -91,20 +100,16 @@ export default function CirclePage() {
     if (memberSnap.exists()) {
       const data = memberSnap.data();
 
-      // Streak logic
       if (data.lastCheckin === getYesterday()) {
         newStreak = (data.streak || 0) + 1;
-      } else if (data.lastCheckin !== todayKey) {
-        // If they missed yesterday, streak resets to 1 (which is the default set above)
       }
 
-      // Cycle logic
       newCycleDay = (data.cycleDay || 0) + 1;
       newCompletedCycles = data.completedCycles || 0;
 
       if (newCycleDay >= circle.durationDays) {
         newCompletedCycles += 1;
-        newCycleDay = 0; // Reset cycle after completion
+        newCycleDay = 0; 
       }
     }
 
@@ -115,10 +120,6 @@ export default function CirclePage() {
       completedCycles: newCompletedCycles,
     });
 
-    setStreak(newStreak);
-    setCycleDay(newCycleDay);
-    setCompletedCycles(newCompletedCycles);
-    setCheckedInToday(true);
     setStatus("Awesome job! Check-in successful.");
   }
 
@@ -142,7 +143,7 @@ export default function CirclePage() {
   const progressPercentage = Math.min(100, (cycleDay / circle.durationDays) * 100);
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-black px-6 py-10 text-black dark:text-white selection:bg-zinc-300 dark:selection:bg-zinc-700">
+    <div className="min-h-screen bg-zinc-50 dark:bg-black px-6 py-10 text-black dark:text-white selection:bg-zinc-300 dark:selection:bg-zinc-700 pb-28">
       <div className="mx-auto max-w-md space-y-8 animate-[fadeIn_0.5s_ease-out]">
         
         {/* HEADER WITH BACK BUTTON */}
@@ -150,7 +151,6 @@ export default function CirclePage() {
           <button
             onClick={() => router.push("/dashboard")}
             className="absolute left-0 w-12 h-12 flex items-center justify-center rounded-full bg-black text-white shadow-lg transition-all duration-200 hover:bg-zinc-800 hover:-translate-y-1 active:scale-90 active:translate-y-0 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
-            aria-label="Go back"
           >
             <span className="text-2xl leading-none -mt-1 font-light">←</span>
           </button>
@@ -205,13 +205,11 @@ export default function CirclePage() {
 
             {/* Stats Grid */}
             <div className="grid grid-cols-2 gap-4">
-              {/* Streak Card */}
               <div className="rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-6 flex flex-col items-center justify-center transition-all hover:shadow-md">
                 <p className="text-4xl font-bold mb-2">{streak} <span className="text-2xl">🔥</span></p>
                 <p className="text-xs text-zinc-500 font-medium uppercase tracking-wider">Current Streak</p>
               </div>
 
-              {/* Completed Cycles Card */}
               <div className="rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-6 flex flex-col items-center justify-center transition-all hover:shadow-md">
                 <p className="text-4xl font-bold mb-2">{completedCycles} <span className="text-2xl">🏆</span></p>
                 <p className="text-xs text-zinc-500 font-medium uppercase tracking-wider">Total Cycles</p>
@@ -224,8 +222,6 @@ export default function CirclePage() {
                 <p className="text-xs text-zinc-500 font-medium uppercase tracking-wider">Cycle Progress</p>
                 <p className="text-xl font-bold">Day {cycleDay} <span className="text-zinc-400 font-normal text-sm">/ {circle.durationDays}</span></p>
               </div>
-              
-              {/* Progress Bar */}
               <div className="h-3 w-full bg-zinc-100 dark:bg-zinc-900 rounded-full overflow-hidden">
                 <div 
                   className="h-full bg-black dark:bg-white rounded-full transition-all duration-1000 ease-out"
@@ -235,7 +231,7 @@ export default function CirclePage() {
             </div>
 
             {/* Check In Button */}
-            <div className="pt-4 space-y-3">
+            <div className="pt-2 space-y-3">
               <button
                 onClick={checkIn}
                 disabled={checkedInToday}
@@ -253,6 +249,45 @@ export default function CirclePage() {
                   {status}
                 </div>
               )}
+            </div>
+
+            {/* ✨ NEW: LIVE LEADERBOARD / MEMBERS SECTION ✨ */}
+            <div className="pt-6 border-t border-zinc-200 dark:border-zinc-800 space-y-4 mt-8">
+              <h3 className="text-xs font-bold uppercase tracking-widest text-zinc-500 ml-2">Circle Members</h3>
+              
+              <div className="space-y-3">
+                {/* YOU Card */}
+                <div className="flex items-center justify-between p-4 rounded-2xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 shadow-sm">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-full bg-black text-white dark:bg-white dark:text-black flex items-center justify-center font-bold text-lg">
+                       {auth.currentUser?.email?.charAt(0).toUpperCase() || "Y"}
+                    </div>
+                    <p className="font-semibold">You</p>
+                  </div>
+                  <div className="text-right">
+                     <p className="font-bold text-lg">{streak} <span className="text-sm">🔥</span></p>
+                  </div>
+                </div>
+
+                {/* PARTNER Card */}
+                {partnerStats && (
+                  <div className="flex items-center justify-between p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-full bg-zinc-200 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400 flex items-center justify-center font-bold text-lg">
+                         P
+                      </div>
+                      <p className="font-semibold text-zinc-600 dark:text-zinc-300">Partner</p>
+                    </div>
+                    <div className="text-right flex items-center gap-2">
+                       {/* Show a mini checkmark if they checked in today! */}
+                       {partnerStats.lastCheckin === todayKey && (
+                          <span className="text-xs font-bold text-green-500 bg-green-100 dark:bg-green-900/30 px-2 py-1 rounded-full">Done Today</span>
+                       )}
+                       <p className="font-bold text-lg text-zinc-600 dark:text-zinc-300">{partnerStats.streak || 0} <span className="text-sm opacity-50">🔥</span></p>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
           </div>

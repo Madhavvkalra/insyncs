@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { doc, onSnapshot, collection, setDoc } from "firebase/firestore";
 import { db, auth } from "../../lib/firebase"; 
-import PageTransition from "../../components/PageTransition";
 
 import GymTracker from "../../components/habits/GymTracker";
 
@@ -269,6 +268,5 @@ export default function CirclePage() {
           )}
         </div>
       </div>
-    </PageTransition>
   );
 }

@@ -149,18 +149,17 @@ export default function GymTracker({ circle, me, circleId, todayKey }: any) {
 
         {hasLockedLocation && (
           <a 
-            href={`http://googleusercontent.com/maps.google.com/maps?q=${me.lockedLocation.lat},${me.lockedLocation.lng}`}
+            href={`https://www.google.com/maps?q=${me.lockedLocation.lat},${me.lockedLocation.lng}`}
             target="_blank"
             rel="noopener noreferrer"
             className="text-[10px] font-bold uppercase tracking-wider text-blue-500 hover:text-blue-600 dark:text-blue-400 transition-colors flex items-center justify-center gap-1.5"
           >
-            <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
-                <circle cx="12" cy="10" r="3"></circle>
-            </svg>
-            View locked gym on map 🗺️
-          </a>
-        )}
+          <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+          <circle cx="12" cy="10" r="3"></circle>
+        </svg>
+         View locked gym on map 🗺️
+         </a>
 
         {!hasLockedLocation && (
           <button

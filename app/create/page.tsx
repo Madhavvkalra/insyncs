@@ -19,14 +19,13 @@ export default function CreateCirclePage() {
   
   const [circleId, setCircleId] = useState("");
   const [codeCopied, setCodeCopied] = useState(false);
-const [linkCopied, setLinkCopied] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   useEffect(() => {
     if (step === 2 && circleId) {
       const unsubscribe = onSnapshot(doc(db, "circles", circleId), (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
-          // As soon as at least 1 other person joins, warp them to the circle!
           if (data.members && data.members.length > 1) {
             router.push(`/circle/${circleId}`);
           }
@@ -48,7 +47,6 @@ const [linkCopied, setLinkCopied] = useState(false);
         return;
       }
 
-      // 1. Create the circle in Firebase
       const docRef = await addDoc(collection(db, "circles"), {
         name,
         habit,
@@ -57,7 +55,6 @@ const [linkCopied, setLinkCopied] = useState(false);
         createdAt: serverTimestamp(),
       });
 
-      // 2. Initialize your own personal stats document
       await setDoc(doc(db, "circles", docRef.id, "members", user.uid), {
         email: user.email,
         name: user.displayName,
@@ -77,11 +74,11 @@ const [linkCopied, setLinkCopied] = useState(false);
   }
 
   function copyInviteLink() {
-  const inviteUrl = `${window.location.origin}/join/${circleId}`;
-  navigator.clipboard.writeText(inviteUrl);
-  setLinkCopied(true); // ✨ NEW: Uses link-specific state
-  setTimeout(() => setLinkCopied(false), 2000);
- }
+    const inviteUrl = `${window.location.origin}/join/${circleId}`;
+    navigator.clipboard.writeText(inviteUrl);
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 2000);
+  }
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-black px-6 py-10 text-black dark:text-white selection:bg-zinc-300 dark:selection:bg-zinc-700">
@@ -181,7 +178,6 @@ const [linkCopied, setLinkCopied] = useState(false);
             </div>
 
             <div className="w-full space-y-3">
-              {/* ✨ The Secret Code Block */}
               <div className="w-full p-4 bg-zinc-100 dark:bg-zinc-900 rounded-2xl flex items-center justify-between shadow-inner">
                 <div className="flex flex-col">
                   <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-1">Join Code</span>
@@ -190,18 +186,15 @@ const [linkCopied, setLinkCopied] = useState(false);
                 <button
                   onClick={() => {
                     navigator.clipboard.writeText(circleId);
-                    // ✨ FIXED: Now sets code-specific state
-                    setCodeCopied(true); 
+                    setCodeCopied(true);
                     setTimeout(() => setCodeCopied(false), 2000);
                   }}
                   className="px-4 py-2 bg-white dark:bg-black border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-bold uppercase tracking-wider shadow-sm hover:scale-105 active:scale-95 transition-all"
                 >
-                  {/* ✨ FIXED: Looks at code-specific state */}
                   {codeCopied ? "Copied ✓" : "Copy Code"}
                 </button>
               </div>
 
-              {/* The Original Link Block */}
               <div className="w-full p-1 bg-zinc-100 dark:bg-zinc-900 rounded-2xl flex items-center shadow-inner">
                 <div className="flex-1 px-4 py-3 text-xs font-mono truncate text-zinc-500">
                   {`${window.location.origin}/join/${circleId}`}
@@ -210,8 +203,14 @@ const [linkCopied, setLinkCopied] = useState(false);
                   onClick={copyInviteLink}
                   className="px-5 py-3 bg-white dark:bg-black border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm font-semibold shadow-sm hover:scale-105 active:scale-95 transition-all"
                 >
-                  {/* ✨ FIXED: Looks at link-specific state */}
                   {linkCopied ? "Copied ✓" : "Copy Link"}
                 </button>
               </div>
             </div>
+
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

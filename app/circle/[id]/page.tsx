@@ -5,6 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 import { doc, onSnapshot, collection, setDoc } from "firebase/firestore";
 import { db, auth } from "../../lib/firebase"; 
 import GymTracker from "../../components/habits/GymTracker";
+import GymTracker from "../../components/habits/GymTracker";
+import SquadLeaderboard from "../../components/SquadLeaderboard"; // Add this!
 
 export default function CirclePage() {
   const params = useParams();

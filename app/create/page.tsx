@@ -60,12 +60,13 @@ export default function CreateCirclePage() {
       // 2. Initialize your own personal stats document inside the circle!
       await setDoc(doc(db, "circles", docRef.id, "members", user.uid), {
         email: user.email,
-        name: user.displayName || name, // ✨ NOW IT SAVES THEIR ACTUAL NAME
+        name: user.displayName, // ✨ NEW: Pulls your real name from your profile!
         streak: 0,
         cycleDay: 0,
         completedCycles: 0,
         lastCheckin: ""
       });
+
 
       setCircleId(docRef.id);
       setStep(2);

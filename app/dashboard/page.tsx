@@ -9,7 +9,6 @@ function SwipeableCircleCard({ circle, isNavigating, onNavigate, onDelete }: any
   const [startX, setStartX] = useState(0);
   const [offsetX, setOffsetX] = useState(0);
   const [isSwiped, setIsSwiped] = useState(false);
-  const router = useRouter();
 
   const handleTouchStart = (e: React.TouchEvent) => setStartX(e.touches[0].clientX);
 
@@ -31,8 +30,13 @@ function SwipeableCircleCard({ circle, isNavigating, onNavigate, onDelete }: any
     }
   };
 
+  const memberCount = circle.members?.length || 1;
+
   return (
-    <div className="relative rounded-2xl bg-red-500 overflow-hidden shadow-sm">
+    {/* ✨ FIXED: Moved active:scale-[0.98] to the OUTER container so the red background shrinks with it! */}
+    <div className={`relative rounded-2xl bg-red-500 overflow-hidden shadow-sm transition-transform duration-200 ${isNavigating ? "scale-[0.98]" : "active:scale-[0.98]"}`}>
+      
+      {/* Background Delete Button */}
       <div className="absolute right-0 top-0 bottom-0 w-[80px] flex items-center justify-center">
         <button
           onClick={(e) => {
@@ -46,6 +50,7 @@ function SwipeableCircleCard({ circle, isNavigating, onNavigate, onDelete }: any
         </button>
       </div>
 
+      {/* Foreground Interactive Card */}
       <div
         onClick={() => {
           if (isSwiped) {
@@ -58,45 +63,39 @@ function SwipeableCircleCard({ circle, isNavigating, onNavigate, onDelete }: any
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
+        // REMOVED scale from here so it doesn't peek
         className={`relative z-10 flex items-center justify-between p-5 rounded-2xl border transition-all duration-200 cursor-pointer ${
           isNavigating
-            ? "border-zinc-300 bg-zinc-100 scale-[0.98] dark:border-zinc-700 dark:bg-zinc-900"
-            : "border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 active:scale-[0.98]"
+            ? "border-zinc-300 bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900"
+            : "border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950"
         }`}
         style={{
           transform: `translateX(${offsetX}px)`,
           transition: startX === 0 ? "transform 0.2s ease-out" : "none",
         }}
       >
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 flex items-center justify-center rounded-full bg-black dark:bg-white text-white dark:text-black font-bold text-lg pointer-events-none">
+        <div className="flex items-center gap-4 pointer-events-none">
+          <div className="w-12 h-12 flex items-center justify-center rounded-full bg-black dark:bg-white text-white dark:text-black font-bold text-lg">
             {circle.name ? circle.name.charAt(0).toUpperCase() : "#"}
           </div>
           <div>
-            <h2 className="font-semibold text-lg flex items-center gap-2 pointer-events-none">
+            <h2 className="font-semibold text-lg flex items-center gap-2">
               {circle.name}
-              {circle.members?.length < 2 && (
-                <span className="text-[10px] bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400 px-2 py-0.5 rounded-full uppercase tracking-wider font-bold">
-                  Waiting
-                </span>
-              )}
+              {/* ✨ UPGRADED: 6 Member Limit UI */}
+              <span className={`text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider font-bold ${
+                memberCount >= 6 
+                  ? "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400"
+                  : "bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400"
+              }`}>
+                {memberCount >= 6 ? "Full" : `${memberCount}/6 Members`}
+              </span>
             </h2>
             
             <div className="mt-0.5">
               {isNavigating ? (
                 <p className="text-sm text-zinc-500">Loading circle...</p>
-              ) : circle.members?.length < 2 ? (
-                <p className="text-sm text-zinc-500">Needs a partner</p>
               ) : (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    router.push(`/circle/${circle.id}/partner`);
-                  }}
-                  className="text-xs font-bold text-zinc-400 hover:text-black dark:hover:text-white uppercase tracking-wider flex items-center gap-1 transition-colors active:scale-95 py-1"
-                >
-                  👤 View Partner Stats
-                </button>
+                <p className="text-sm text-zinc-500">Tap to view leaderboard</p>
               )}
             </div>
           </div>
@@ -111,6 +110,7 @@ function SwipeableCircleCard({ circle, isNavigating, onNavigate, onDelete }: any
     </div>
   );
 }
+
 
 export default function DashboardPage() {
   const [circles, setCircles] = useState<any[]>([]);

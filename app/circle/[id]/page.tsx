@@ -18,6 +18,10 @@ export default function CirclePage() {
   const [linkCopied, setLinkCopied] = useState(false);
   
   const [members, setMembers] = useState<any[]>([]);
+  
+  // ✨ NEW: GPS State
+  const [isLocating, setIsLocating] = useState(false);
+  const [locationError, setLocationError] = useState("");
 
   const todayKey = new Date().toISOString().split("T")[0];
 
@@ -25,6 +29,21 @@ export default function CirclePage() {
     const d = new Date();
     d.setDate(d.getDate() - 1);
     return d.toISOString().split("T")[0];
+  }
+
+  // Haversine formula to calculate distance in meters between two coordinates
+  function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
+    const R = 6371e3; // Earth's radius in meters
+    const rad = Math.PI / 180;
+    const dLat = (lat2 - lat1) * rad;
+    const dLon = (lon2 - lon1) * rad;
+    
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(lat1 * rad) * Math.cos(lat2 * rad) *
+              Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c; // Returns distance in meters
   }
 
   useEffect(() => {
@@ -58,34 +77,76 @@ export default function CirclePage() {
     return () => unsubscribeAuth();
   }, [id, todayKey]);
 
-  async function checkIn() {
-    const user = auth.currentUser;
-    if (!user) return;
+  // ✨ NEW: Handes both Locking Location AND Verifying Check-ins
+  async function handleAction() {
+    setLocationError("");
+    setIsLocating(true);
 
-    const memberRef = doc(db, "circles", id, "members", user.uid);
-    const memberSnap = await getDoc(memberRef);
-
-    let newStreak = 1, newCycleDay = 1, newCompletedCycles = 0;
-
-    if (memberSnap.exists()) {
-      const data = memberSnap.data();
-      if (data.lastCheckin === getYesterday()) newStreak = (data.streak || 0) + 1;
-      
-      newCycleDay = (data.cycleDay || 0) + 1;
-      newCompletedCycles = data.completedCycles || 0;
-
-      if (newCycleDay >= circle?.durationDays) {
-        newCompletedCycles += 1;
-        newCycleDay = 0; 
-      }
+    if (!navigator.geolocation) {
+      setLocationError("Your device does not support location tracking.");
+      setIsLocating(false);
+      return;
     }
 
-    await setDoc(memberRef, {
-      streak: newStreak,
-      lastCheckin: todayKey,
-      cycleDay: newCycleDay,
-      completedCycles: newCompletedCycles,
-    }, { merge: true });
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        const user = auth.currentUser;
+        if (!user) return;
+
+        const memberRef = doc(db, "circles", id, "members", user.uid);
+        const memberSnap = await getDoc(memberRef);
+        
+        if (!memberSnap.exists()) return;
+        const data = memberSnap.data();
+
+        // SCENARIO 1: Day 1 - Lock the Gym Location
+        if (!data.lockedLocation) {
+          await setDoc(memberRef, {
+            lockedLocation: { lat: latitude, lng: longitude }
+          }, { merge: true });
+          setIsLocating(false);
+          return;
+        }
+
+        // SCENARIO 2: Day 2+ - Verify they are within 150 meters
+        const dist = calculateDistance(latitude, longitude, data.lockedLocation.lat, data.lockedLocation.lng);
+        
+        if (dist > 150) {
+          setLocationError(`Denied. You are ${Math.round(dist)}m away from your locked gym.`);
+          setIsLocating(false);
+          return;
+        }
+
+        // Verification Passed: Proceed with Check-in
+        let newStreak = 1, newCycleDay = 1, newCompletedCycles = data.completedCycles || 0;
+
+        if (data.lastCheckin === getYesterday()) {
+          newStreak = (data.streak || 0) + 1;
+        }
+        
+        newCycleDay = (data.cycleDay || 0) + 1;
+
+        if (newCycleDay >= circle?.durationDays) {
+          newCompletedCycles += 1;
+          newCycleDay = 0; 
+        }
+
+        await setDoc(memberRef, {
+          streak: newStreak,
+          lastCheckin: todayKey,
+          cycleDay: newCycleDay,
+          completedCycles: newCompletedCycles,
+        }, { merge: true });
+
+        setIsLocating(false);
+      },
+      (error) => {
+        setLocationError("Failed to get location. Please allow GPS permissions in your browser/phone settings.");
+        setIsLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
   }
 
   function copyInviteLink() {
@@ -105,6 +166,8 @@ export default function CirclePage() {
   }
 
   const isWaitingForSquad = members.length < 2;
+  const me = members.find(m => m.uid === auth.currentUser?.uid);
+  const hasLockedLocation = !!me?.lockedLocation;
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-black px-6 py-10 text-black dark:text-white pb-28">
@@ -187,17 +250,27 @@ export default function CirclePage() {
                     {linkCopied ? "Copied! ✓" : "Copy Invite"}
                  </button>
               </div>
+
+              {/* ✨ NEW: GPS Error Message UI */}
+              {locationError && (
+                <div className="p-3 bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 rounded-xl text-xs font-medium text-center">
+                  {locationError}
+                </div>
+              )}
               
               <button
-                onClick={checkIn}
-                disabled={checkedInToday}
+                onClick={handleAction}
+                disabled={checkedInToday || isLocating}
                 className={`w-full flex items-center justify-center gap-2 rounded-2xl py-4 text-lg font-bold transition-all duration-200 active:scale-95 ${
                   checkedInToday 
                     ? "bg-zinc-200 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-500 cursor-not-allowed" 
                     : "bg-black text-white dark:bg-white dark:text-black shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:-translate-y-1"
                 }`}
               >
-                {checkedInToday ? "✓ Checked in Today" : "Check In Now"}
+                {isLocating ? "Verifying GPS..." : 
+                 checkedInToday ? "✓ Checked in Today" : 
+                 !hasLockedLocation ? "📍 Lock Gym Location" : 
+                 "Verify & Check In"}
               </button>
             </div>
 
@@ -212,6 +285,7 @@ export default function CirclePage() {
                   const progress = Math.min(100, ((member.cycleDay || 0) / circle.durationDays) * 100);
                   const isMe = member.uid === auth.currentUser?.uid;
                   const displayName = member.name || member.email?.split('@')[0] || "Anonymous";
+                  const hasLocked = !!member.lockedLocation;
 
                   return (
                     <div 
@@ -228,8 +302,9 @@ export default function CirclePage() {
                               <p className="font-semibold text-lg leading-none">
                                  {displayName} {isMe && <span className="text-xs font-normal text-zinc-400 ml-1">(You)</span>}
                               </p>
-                              <p className="text-xs font-bold text-zinc-400 mt-1 uppercase tracking-wider">
-                                {member.streak || 0} Day Streak 🔥
+                              {/* ✨ NEW: Shows if they have locked their location yet */}
+                              <p className="text-[10px] font-bold mt-1 uppercase tracking-wider flex items-center gap-1">
+                                {hasLocked ? <span className="text-green-600 dark:text-green-400">✓ Location Locked</span> : <span className="text-orange-500">⚠ Setup Pending</span>}
                               </p>
                            </div>
                         </div>
@@ -238,7 +313,7 @@ export default function CirclePage() {
                         </div>
                       </div>
                       
-                      <div className="h-2.5 w-full bg-zinc-100 dark:bg-zinc-900 rounded-full overflow-hidden">
+                      <div className="h-2.5 w-full bg-zinc-100 dark:bg-zinc-900 rounded-full overflow-hidden mt-2">
                         <div 
                           className="h-full bg-black dark:bg-white rounded-full transition-all duration-1000 ease-out"
                           style={{ width: `${progress}%` }}

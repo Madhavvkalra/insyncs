@@ -5,6 +5,7 @@ import { collection, query, where, onSnapshot, deleteDoc, doc } from "firebase/f
 import { db, auth } from "../lib/firebase";
 import { useRouter } from "next/navigation";
 
+// ✨ SWIPE-TO-DELETE & INSTANT-CLICK CARD COMPONENT
 function SwipeableCircleCard({ circle, isNavigating, onNavigate, onDelete }: any) {
   const [startX, setStartX] = useState(0);
   const [offsetX, setOffsetX] = useState(0);
@@ -33,7 +34,6 @@ function SwipeableCircleCard({ circle, isNavigating, onNavigate, onDelete }: any
   const memberCount = circle.members?.length || 1;
 
   return (
-    {/* ✨ FIXED: Moved active:scale-[0.98] to the OUTER container so the red background shrinks with it! */}
     <div className={`relative rounded-2xl bg-red-500 overflow-hidden shadow-sm transition-transform duration-200 ${isNavigating ? "scale-[0.98]" : "active:scale-[0.98]"}`}>
       
       {/* Background Delete Button */}
@@ -63,7 +63,6 @@ function SwipeableCircleCard({ circle, isNavigating, onNavigate, onDelete }: any
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        // REMOVED scale from here so it doesn't peek
         className={`relative z-10 flex items-center justify-between p-5 rounded-2xl border transition-all duration-200 cursor-pointer ${
           isNavigating
             ? "border-zinc-300 bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900"
@@ -81,7 +80,6 @@ function SwipeableCircleCard({ circle, isNavigating, onNavigate, onDelete }: any
           <div>
             <h2 className="font-semibold text-lg flex items-center gap-2">
               {circle.name}
-              {/* ✨ UPGRADED: 6 Member Limit UI */}
               <span className={`text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider font-bold ${
                 memberCount >= 6 
                   ? "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400"
@@ -111,7 +109,7 @@ function SwipeableCircleCard({ circle, isNavigating, onNavigate, onDelete }: any
   );
 }
 
-
+// ✨ MAIN DASHBOARD PAGE
 export default function DashboardPage() {
   const [circles, setCircles] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);

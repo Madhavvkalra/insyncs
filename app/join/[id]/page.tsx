@@ -66,12 +66,13 @@ export default function JoinPage() {
         return;
       }
 
-      // Safety Check 2: Is it already full? (Assuming 2 max members)
-      if (circle.members?.length >= 2) {
+        // Safety Check 2: Is it already full?
+      if (circle.members?.length >= 6) {   // <--- CHANGE THIS 2 TO A 6
         setError("This circle is already full!");
         setIsJoining(false);
         return;
       }
+
 
       // 1. Add user to the main circle array
       await updateDoc(doc(db, "circles", id), {

@@ -10,6 +10,7 @@ function SwipeableCircleCard({ circle, isNavigating, onNavigate, onDelete }: any
   const [startX, setStartX] = useState(0);
   const [offsetX, setOffsetX] = useState(0);
   const [isSwiped, setIsSwiped] = useState(false);
+  const router = useRouter(); // NEW: Needed to route to partner page
 
   const handleTouchStart = (e: React.TouchEvent) => setStartX(e.touches[0].clientX);
 
@@ -60,7 +61,6 @@ function SwipeableCircleCard({ circle, isNavigating, onNavigate, onDelete }: any
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        // FIXED: Removed opacity-80 so the red background doesn't bleed through!
         className={`relative z-10 flex items-center justify-between p-5 rounded-2xl border transition-all duration-200 ${
           isNavigating
             ? "border-zinc-300 bg-zinc-100 scale-[0.98] dark:border-zinc-700 dark:bg-zinc-900"
@@ -71,12 +71,12 @@ function SwipeableCircleCard({ circle, isNavigating, onNavigate, onDelete }: any
           transition: startX === 0 ? "transform 0.2s ease-out" : "none",
         }}
       >
-        <div className="flex items-center gap-4 pointer-events-none">
-          <div className="w-12 h-12 flex items-center justify-center rounded-full bg-black dark:bg-white text-white dark:text-black font-bold text-lg">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 flex items-center justify-center rounded-full bg-black dark:bg-white text-white dark:text-black font-bold text-lg pointer-events-none">
             {circle.name ? circle.name.charAt(0).toUpperCase() : "#"}
           </div>
           <div>
-            <h2 className="font-semibold text-lg flex items-center gap-2">
+            <h2 className="font-semibold text-lg flex items-center gap-2 pointer-events-none">
               {circle.name}
               {circle.members?.length < 2 && (
                 <span className="text-[10px] bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400 px-2 py-0.5 rounded-full uppercase tracking-wider font-bold">
@@ -84,19 +84,31 @@ function SwipeableCircleCard({ circle, isNavigating, onNavigate, onDelete }: any
                 </span>
               )}
             </h2>
-            <p className="text-sm text-zinc-500">
-              {isNavigating
-                ? "Loading circle..."
-                : circle.members?.length < 2
-                ? "Needs a partner"
-                : "Tap to view"}
-            </p>
+            
+            {/* ✨ NEW: Clickable Partner Link ✨ */}
+            <div className="mt-0.5">
+              {isNavigating ? (
+                <p className="text-sm text-zinc-500">Loading circle...</p>
+              ) : circle.members?.length < 2 ? (
+                <p className="text-sm text-zinc-500">Needs a partner</p>
+              ) : (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation(); // Stops the main card from clicking!
+                    router.push(`/circle/${circle.id}/partner`);
+                  }}
+                  className="text-xs font-bold text-zinc-400 hover:text-black dark:hover:text-white uppercase tracking-wider flex items-center gap-1 transition-colors active:scale-95 py-1"
+                >
+                  👤 View Partner Stats
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
         {/* Dynamic loading spinner vs arrow */}
         {isNavigating ? (
-          <div className="w-5 h-5 border-2 border-zinc-200 border-t-black rounded-full animate-spin dark:border-zinc-700 dark:border-t-white"></div>
+          <div className="w-5 h-5 border-2 border-zinc-200 border-t-black rounded-full animate-spin dark:border-zinc-700 dark:border-t-white pointer-events-none"></div>
         ) : (
           <span className="text-zinc-400 pointer-events-none">➔</span>
         )}
@@ -104,6 +116,7 @@ function SwipeableCircleCard({ circle, isNavigating, onNavigate, onDelete }: any
     </div>
   );
 }
+
 
       {/* Foreground Interactive Card */}
       <div

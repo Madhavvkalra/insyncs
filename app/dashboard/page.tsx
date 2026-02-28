@@ -70,28 +70,28 @@ function SwipeableCircleCard({ circle, isNavigating, onNavigate, onDelete }: any
           transition: startX === 0 ? "transform 0.2s ease-out" : "none",
         }}
       >
-        <div className="flex items-center gap-4 pointer-events-none w-full">
+                <div className="flex items-center gap-4 pointer-events-none w-full">
           <div className="w-12 h-12 flex-shrink-0 flex items-center justify-center rounded-full bg-black dark:bg-white text-white dark:text-black font-bold text-lg">
             {circle.name ? circle.name.charAt(0).toUpperCase() : "#"}
           </div>
           
-          <div className="flex-1 min-w-0 pr-2">
-            <div className="flex items-center gap-2">
-              <h2 className="font-semibold text-lg truncate">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-3">
+              <h2 className="font-semibold text-lg leading-tight line-clamp-2">
                 {circle.name}
               </h2>
-              <span className={`flex-shrink-0 whitespace-nowrap text-[10px] px-2.5 py-0.5 rounded-full uppercase tracking-wider font-bold ${
+              <span className={`flex-shrink-0 mt-0.5 whitespace-nowrap text-[10px] px-2.5 py-1 rounded-full uppercase tracking-wider font-bold ${
                 memberCount >= 6 
-                  ? "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400"
-                  : "bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400"
+                  ? "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
+                  : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
               }`}>
                 {memberCount >= 6 ? "Full" : `${memberCount}/6 Members`}
               </span>
             </div>
             
-            <div className="mt-0.5">
+            <div className="mt-1">
               {isNavigating ? (
-                <p className="text-sm text-zinc-500">Loading circle...</p>
+                <p className="text-sm text-zinc-500 font-medium">Loading...</p>
               ) : (
                 <p className="text-sm text-zinc-500">Tap to view leaderboard</p>
               )}

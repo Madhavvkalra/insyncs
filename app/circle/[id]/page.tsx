@@ -6,9 +6,8 @@ import { doc, onSnapshot, collection, setDoc } from "firebase/firestore";
 import { db, auth } from "../../lib/firebase"; 
 
 import GymTracker from "../../components/habits/GymTracker";
-import SquadLeaderboard from "../../components/SquadLeaderboard"; // 👈 Look at this! Our new component
-
-import WaitingRoom from "../../components/WaitingRoom";
+import SquadLeaderboard from "../../components/SquadLeaderboard"; 
+import WaitingRoom from "../../components/waitingRoom"; // 👈 Fixed: Lowercase 'w' to match your file!
 
 export default function CirclePage() {
   const params = useParams();
@@ -17,7 +16,6 @@ export default function CirclePage() {
 
   const [circle, setCircle] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [linkCopied, setLinkCopied] = useState(false);
   const [members, setMembers] = useState<any[]>([]);
 
   const todayKey = new Date().toISOString().split("T")[0];
@@ -48,12 +46,6 @@ export default function CirclePage() {
 
     return () => { unsubscribeCircle(); unsubscribeAuth(); };
   }, [id, router]);
-
-  function copyInviteLink() {
-    navigator.clipboard.writeText(`${window.location.origin}/join/${id}`);
-    setLinkCopied(true);
-    setTimeout(() => setLinkCopied(false), 2000);
-  }
 
   async function standardCheckIn() {
     const user = auth.currentUser;
@@ -117,8 +109,7 @@ export default function CirclePage() {
 
         {isWaitingForSquad ? (
           <WaitingRoom id={id} />
-           ) : (
-
+        ) : (
           <div className="space-y-8">
             <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm space-y-4">
               <div className="flex justify-between items-center mb-2">
@@ -126,9 +117,6 @@ export default function CirclePage() {
                     <p className="text-xs font-bold uppercase tracking-widest text-zinc-500">{circle.habit}</p>
                     <p className="text-sm font-medium text-zinc-400">{circle.durationDays} Day Cycle</p>
                  </div>
-                 <button onClick={copyInviteLink} className="text-xs font-bold bg-zinc-100 dark:bg-zinc-900 px-3 py-1.5 rounded-full">
-                    {linkCopied ? "Copied! ✓" : "Copy Invite"}
-                 </button>
               </div>
 
               {circle.habit === "Gym" ? (
@@ -150,7 +138,7 @@ export default function CirclePage() {
               )}
             </div>
 
-            {/* 🎯 THE MAGIC HAPPENS HERE: 100 lines of code turned into 1 line */}
+            {/* 🎯 The Clean Leaderboard */}
             <SquadLeaderboard members={members} circle={circle} todayKey={todayKey} />
 
             <div className="space-y-4 pt-10 pb-6 opacity-70">

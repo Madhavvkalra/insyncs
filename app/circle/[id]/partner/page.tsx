@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { doc, getDoc, onSnapshot, collection } from "firebase/firestore";
-import { db, auth } from "../../../../lib/firebase";
+// FIXED: Removed one set of "../" so it points correctly to the lib folder!
+import { db, auth } from "../../../lib/firebase";
 
 export default function PartnerProfilePage() {
   const params = useParams();
@@ -19,7 +20,6 @@ export default function PartnerProfilePage() {
       if (!user || !id) return;
 
       try {
-        // 1. Fetch the Circle details (Habit, Duration)
         const circleSnap = await getDoc(doc(db, "circles", id));
         if (circleSnap.exists()) {
           setCircle(circleSnap.data());
@@ -28,11 +28,8 @@ export default function PartnerProfilePage() {
           return;
         }
 
-        // 2. Fetch the Partner's live stats
         const unsubscribeMembers = onSnapshot(collection(db, "circles", id, "members"), (snap) => {
           const membersData = snap.docs.map(doc => ({ uid: doc.id, ...(doc.data() as any) }));
-          
-          // Find the member that is NOT the current logged-in user
           const partner = membersData.find(m => m.uid !== user.uid);
           setPartnerStats(partner || null);
           setLoading(false);
@@ -71,7 +68,6 @@ export default function PartnerProfilePage() {
     <div className="min-h-screen bg-zinc-50 dark:bg-black px-6 py-10 text-black dark:text-white selection:bg-zinc-300 dark:selection:bg-zinc-700 pb-28">
       <div className="mx-auto max-w-md space-y-8 animate-[fadeIn_0.5s_ease-out]">
         
-        {/* HEADER */}
         <div className="relative flex items-center justify-center pt-2 h-14">
           <button
             onClick={() => router.back()}
@@ -82,7 +78,6 @@ export default function PartnerProfilePage() {
           <h1 className="text-xl font-semibold tracking-tight">Partner Stats</h1>
         </div>
 
-        {/* IDENTITY SECTION */}
         <div className="flex flex-col items-center mt-6 mb-10">
           <div className="w-24 h-24 flex items-center justify-center rounded-full bg-zinc-200 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400 text-4xl font-bold mb-4 shadow-inner">
              P
@@ -93,7 +88,6 @@ export default function PartnerProfilePage() {
           <h2 className="text-2xl font-bold mt-1">{circle.name}</h2>
         </div>
 
-        {/* HABIT BADGES */}
         <div className="flex items-center justify-center gap-2 mb-2">
           <span className="px-4 py-1.5 bg-zinc-200 dark:bg-zinc-800 rounded-full text-xs font-bold uppercase tracking-widest text-zinc-600 dark:text-zinc-300">
             {circle.habit}
@@ -103,7 +97,6 @@ export default function PartnerProfilePage() {
           </span>
         </div>
 
-        {/* STATS GRID */}
         <div className="grid grid-cols-2 gap-4">
           <div className="rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-6 flex flex-col items-center justify-center transition-all hover:shadow-md">
             <p className="text-4xl font-bold mb-2">{partnerStats.streak || 0} <span className="text-2xl">🔥</span></p>
@@ -116,7 +109,6 @@ export default function PartnerProfilePage() {
           </div>
         </div>
 
-        {/* VISUAL CYCLE PROGRESS CARD */}
         <div className="rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-8 space-y-4">
           <div className="flex justify-between items-end">
             <p className="text-xs text-zinc-500 font-medium uppercase tracking-wider">Cycle Progress</p>

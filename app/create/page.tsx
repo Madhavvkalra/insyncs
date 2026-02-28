@@ -102,69 +102,8 @@ export default function CreateCirclePage() {
           </h1>
         </div>
 
-        {step === 1 ? (
-          <div className="space-y-8 mt-8 animate-[fadeIn_0.3s_ease-out]">
-            
-            <div className="space-y-3">
-              <label className="text-sm font-medium text-zinc-500 uppercase tracking-wider ml-1">Circle Name</label>
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Morning Warriors"
-                className="w-full rounded-2xl border border-zinc-200 dark:border-zinc-800 p-4 bg-white dark:bg-zinc-950 text-lg transition-all focus:ring-2 focus:ring-black dark:focus:ring-white outline-none"
-              />
-            </div>
-
-            <div className="space-y-3">
-              <label className="text-sm font-medium text-zinc-500 uppercase tracking-wider ml-1">Primary Habit</label>
-              <div className="flex flex-wrap gap-2">
-                {HABIT_OPTIONS.map((h) => (
-                  <button
-                    key={h}
-                    onClick={() => setHabit(h)}
-                    className={`px-4 py-2.5 rounded-full text-sm font-medium transition-all active:scale-95 ${
-                      habit === h 
-                        ? "bg-black text-white dark:bg-white dark:text-black shadow-md" 
-                        : "bg-white text-black border border-zinc-200 dark:bg-zinc-950 dark:border-zinc-800 dark:text-white hover:border-zinc-400"
-                    }`}
-                  >
-                    {h}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <label className="text-sm font-medium text-zinc-500 uppercase tracking-wider ml-1">Duration (Days)</label>
-              <div className="flex gap-2">
-                {DURATION_OPTIONS.map((d) => (
-                  <button
-                    key={d}
-                    onClick={() => setDuration(d)}
-                    className={`flex-1 py-3 rounded-2xl text-sm font-medium transition-all active:scale-95 ${
-                      duration === d 
-                        ? "bg-black text-white dark:bg-white dark:text-black shadow-md" 
-                        : "bg-white text-black border border-zinc-200 dark:bg-zinc-950 dark:border-zinc-800 dark:text-white hover:border-zinc-400"
-                    }`}
-                  >
-                    {d}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="pt-6">
-              <button
-                onClick={handleCreateCircle}
-                disabled={!name.trim() || isLoading}
-                className="w-full flex items-center justify-center gap-2 rounded-2xl bg-black py-4 text-white font-medium shadow-[0_8px_30px_rgb(0,0,0,0.12)] transition-all duration-200 hover:bg-zinc-800 hover:-translate-y-1 hover:shadow-[0_8px_40px_rgb(0,0,0,0.2)] active:scale-95 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 dark:bg-white dark:text-black dark:shadow-[0_8px_30px_rgba(255,255,255,0.15)] dark:hover:bg-zinc-200"
-              >
-                {isLoading ? <span className="animate-pulse">Creating...</span> : "Create & Get Invite Link"}
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center py-12 space-y-8 animate-[fadeIn_0.4s_ease-out]">
+           ) : (
+          <div className="flex flex-col items-center justify-center py-6 space-y-8 animate-[fadeIn_0.4s_ease-out]">
             
             <div className="relative flex items-center justify-center w-32 h-32">
               <div className="absolute inset-0 rounded-full border-4 border-black/10 dark:border-white/10 animate-[ping_2s_cubic-bezier(0,0,0.2,1)_infinite]"></div>
@@ -177,25 +116,42 @@ export default function CreateCirclePage() {
             <div className="text-center space-y-2">
               <h2 className="text-2xl font-bold">Waiting for squad...</h2>
               <p className="text-zinc-500 dark:text-zinc-400 text-sm max-w-[250px] mx-auto">
-                Send this link to your friends. The tracker will unlock when the first person joins!
+                Share the code or link below. The tracker will unlock when the first person joins!
               </p>
             </div>
 
-            <div className="w-full p-1 bg-zinc-200 dark:bg-zinc-800 rounded-2xl flex items-center shadow-inner mt-4">
-              <div className="flex-1 px-4 py-3 text-sm font-mono truncate text-zinc-600 dark:text-zinc-300">
-                {`${window.location.origin}/join/${circleId}`}
+            <div className="w-full space-y-3">
+              {/* ✨ NEW: The Secret Code Block */}
+              <div className="w-full p-4 bg-zinc-100 dark:bg-zinc-900 rounded-2xl flex items-center justify-between shadow-inner">
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-1">Join Code</span>
+                  <span className="text-sm font-mono font-bold text-black dark:text-white truncate max-w-[150px]">{circleId}</span>
+                </div>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(circleId);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  }}
+                  className="px-4 py-2 bg-white dark:bg-black border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-bold uppercase tracking-wider shadow-sm hover:scale-105 active:scale-95 transition-all"
+                >
+                  {copied ? "Copied ✓" : "Copy Code"}
+                </button>
               </div>
-              <button
-                onClick={copyInviteLink}
-                className="px-6 py-3 bg-white dark:bg-black rounded-xl text-sm font-semibold shadow-sm hover:scale-105 active:scale-95 transition-all"
-              >
-                {copied ? "Copied! ✓" : "Copy"}
-              </button>
+
+              {/* The Original Link Block */}
+              <div className="w-full p-1 bg-zinc-100 dark:bg-zinc-900 rounded-2xl flex items-center shadow-inner">
+                <div className="flex-1 px-4 py-3 text-xs font-mono truncate text-zinc-500">
+                  {`${window.location.origin}/join/${circleId}`}
+                </div>
+                <button
+                  onClick={copyInviteLink}
+                  className="px-5 py-3 bg-white dark:bg-black border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm font-semibold shadow-sm hover:scale-105 active:scale-95 transition-all"
+                >
+                  {copied ? "Copied ✓" : "Copy Link"}
+                </button>
+              </div>
             </div>
 
           </div>
         )}
-      </div>
-    </div>
-  );
-}

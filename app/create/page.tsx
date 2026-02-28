@@ -57,9 +57,19 @@ export default function CreateCirclePage() {
         name,
         habit,
         durationDays: duration,
-        members: [user.uid], // Only you right now
+        members: [user.uid],
         createdAt: serverTimestamp(),
       });
+
+      // ✨ NEW: Add your own personal stats document inside the circle with your email!
+      await setDoc(doc(db, "circles", docRef.id, "members", user.uid), {
+        email: user.email,  // <--- THIS IS THE MAGIC LINE
+        streak: 0,
+        cycleDay: 0,
+        completedCycles: 0,
+        lastCheckin: ""
+      });
+
 
       // 2. Save the ID and move to the Waiting Room
       setCircleId(docRef.id);

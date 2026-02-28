@@ -77,17 +77,22 @@ function SwipeableCircleCard({ circle, isNavigating, onNavigate, onDelete }: any
           <div className="w-12 h-12 flex items-center justify-center rounded-full bg-black dark:bg-white text-white dark:text-black font-bold text-lg">
             {circle.name ? circle.name.charAt(0).toUpperCase() : "#"}
           </div>
-          <div>
-            <h2 className="font-semibold text-lg flex items-center gap-2">
-              {circle.name}
-              <span className={`text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider font-bold ${
+                   {/* Added min-w-0 to the container to handle text truncation cleanly */}
+          <div className="flex-1 min-w-0 pointer-events-none">
+            <div className="flex items-center gap-2">
+              {/* Added truncate so long names get "..." instead of squishing the badge */}
+              <h2 className="font-semibold text-lg truncate">
+                {circle.name}
+              </h2>
+              {/* Added flex-shrink-0 and whitespace-nowrap for a perfect pill shape! */}
+              <span className={`flex-shrink-0 whitespace-nowrap text-[10px] px-2.5 py-0.5 rounded-full uppercase tracking-wider font-bold ${
                 memberCount >= 6 
                   ? "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400"
                   : "bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400"
               }`}>
                 {memberCount >= 6 ? "Full" : `${memberCount}/6 Members`}
               </span>
-            </h2>
+            </div>
             
             <div className="mt-0.5">
               {isNavigating ? (

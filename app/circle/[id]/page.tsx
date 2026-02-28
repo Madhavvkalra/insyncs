@@ -240,16 +240,17 @@ export default function CirclePage() {
                                           {hasLocked ? <span className="text-zinc-500">Location Locked</span> : <span className="text-orange-500">⚠ Setup Pending</span>}
                                         </p>
                                         {hasLocked && !isMe && (
-                                          <a 
-                                            href={`http://googleusercontent.com/maps.google.com/maps?q=${member.lockedLocation.lat},${member.lockedLocation.lng}`}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            onClick={(e) => e.stopPropagation()} 
-                                            className="text-[10px] font-bold uppercase tracking-wider text-blue-500 hover:text-blue-600 dark:text-blue-400 transition-colors"
-                                          >
-                                            (Map 🗺️)
-                                          </a>
-                                        )}
+  <a 
+    href={`https://www.google.com/maps?q=${member.lockedLocation.lat},${member.lockedLocation.lng}`}
+    target="_blank"
+    rel="noopener noreferrer"
+    onClick={(e) => e.stopPropagation()} 
+    className="text-[10px] font-bold uppercase tracking-wider text-blue-500 hover:text-blue-600 dark:text-blue-400 transition-colors"
+  >
+    (Map 🗺️)
+  </a>
+)}
+
                                       </>
                                     )
                                   ) : (

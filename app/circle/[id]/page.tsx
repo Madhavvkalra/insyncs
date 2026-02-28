@@ -75,7 +75,6 @@ export default function CirclePage() {
     return () => unsubscribeAuth();
   }, [id, todayKey]);
 
-  // ✨ NEW: Dedicated function JUST for locking the gym location
   async function lockLocation() {
     setLocationError("");
     setIsLocating(true);
@@ -84,6 +83,13 @@ export default function CirclePage() {
       setLocationError("Your device does not support location tracking.");
       setIsLocating(false);
       return;
+    }
+
+    // Safety check: Don't allow lock if already locked!
+    const me = members.find(m => m.uid === auth.currentUser?.uid);
+    if (me?.lockedLocation) {
+        setIsLocating(false);
+        return;
     }
 
     navigator.geolocation.getCurrentPosition(
@@ -108,7 +114,6 @@ export default function CirclePage() {
     );
   }
 
-  // ✨ NEW: Dedicated function JUST for daily check-ins
   async function verifyCheckIn() {
     setLocationError("");
     setIsLocating(true);
@@ -277,7 +282,7 @@ export default function CirclePage() {
                  </button>
               </div>
 
-              {/* ✨ NEW: Dedicated Location Setting UI */}
+              {/* ✨ ONE-TIME LOCATION LOCK UI */}
               <div className="w-full p-4 bg-zinc-100 dark:bg-zinc-900 rounded-2xl flex items-center justify-between border border-transparent dark:border-zinc-800">
                 <div className="flex flex-col">
                   <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-1">Target Gym</span>
@@ -287,10 +292,10 @@ export default function CirclePage() {
                 </div>
                 <button
                   onClick={lockLocation}
-                  disabled={isLocating}
+                  disabled={isLocating || hasLockedLocation} // ✨ FIXED: Permanently disabled once locked!
                   className="px-4 py-2 bg-white dark:bg-black border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs font-bold uppercase tracking-wider shadow-sm active:scale-95 transition-all disabled:opacity-50"
                 >
-                  {hasLockedLocation ? "Update" : "Set Location"}
+                  {hasLockedLocation ? "Locked 🔒" : "Set Location"}
                 </button>
               </div>
 
@@ -300,7 +305,6 @@ export default function CirclePage() {
                 </div>
               )}
               
-              {/* ✨ MAIN CHECK-IN BUTTON */}
               <button
                 onClick={verifyCheckIn}
                 disabled={!hasLockedLocation || checkedInToday || isLocating}
@@ -345,9 +349,25 @@ export default function CirclePage() {
                               <p className="font-semibold text-lg leading-none">
                                  {displayName} {isMe && <span className="text-xs font-normal text-zinc-400 ml-1">(You)</span>}
                               </p>
-                              <p className="text-[10px] font-bold mt-1 uppercase tracking-wider flex items-center gap-1">
-                                {hasLocked ? <span className="text-green-600 dark:text-green-400">✓ Location Locked</span> : <span className="text-orange-500">⚠ Setup Pending</span>}
-                              </p>
+                              
+                              {/* ✨ NEW: Transparent Location Visibility */}
+                              <div className="mt-1 flex items-center gap-2">
+                                <p className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
+                                  {hasLocked ? <span className="text-green-600 dark:text-green-400">✓ Location Locked</span> : <span className="text-orange-500">⚠ Setup Pending</span>}
+                                </p>
+                                {hasLocked && (
+                                  <a 
+                                    href={`https://www.google.com/maps?q=${member.lockedLocation.lat},${member.lockedLocation.lng}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={(e) => e.stopPropagation()} // Prevents the card from routing when you click the map link!
+                                    className="text-[10px] font-bold uppercase tracking-wider text-blue-500 hover:text-blue-600 dark:text-blue-400 transition-colors"
+                                  >
+                                    (View Map 🗺️)
+                                  </a>
+                                )}
+                              </div>
+
                            </div>
                         </div>
                         <div className="text-right">

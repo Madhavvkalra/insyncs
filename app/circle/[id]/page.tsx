@@ -1,179 +1,141 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { addDoc, collection, serverTimestamp, doc, setDoc, onSnapshot } from "firebase/firestore";
-import { db, auth } from "../lib/firebase";
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { doc, getDoc, setDoc, onSnapshot, collection } from "firebase/firestore";
+import { db, auth } from "../../lib/firebase";
 
-const HABIT_OPTIONS = ["Gym", "Reading", "Coding", "Meditation", "Running"];
-const DURATION_OPTIONS = [7, 21, 30, 60];
-
-export default function CreateCirclePage() {
+export default function CirclePage() {
+  const params = useParams();
   const router = useRouter();
-  const [step, setStep] = useState<1 | 2>(1); 
-  const [isLoading, setIsLoading] = useState(false);
+  const id = params.id as string;
+
+  const [circle, setCircle] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [checkedInToday, setCheckedInToday] = useState(false);
   
-  const [name, setName] = useState("");
-  const [habit, setHabit] = useState("Gym");
-  const [duration, setDuration] = useState(21);
-  
-  const [circleId, setCircleId] = useState("");
   const [codeCopied, setCodeCopied] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+  
+  const [members, setMembers] = useState<any[]>([]);
+
+  const todayKey = new Date().toISOString().split("T")[0];
+
+  function getYesterday() {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return d.toISOString().split("T")[0];
+  }
 
   useEffect(() => {
-    if (step === 2 && circleId) {
-      const unsubscribe = onSnapshot(doc(db, "circles", circleId), (docSnap) => {
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          if (data.members && data.members.length > 1) {
-            router.push(`/circle/${circleId}`);
-          }
-        }
+    if (!id) return;
+    const unsubscribe = onSnapshot(doc(db, "circles", id), (snap) => {
+      if (snap.exists()) setCircle({ id: snap.id, ...snap.data() });
+      else router.push("/dashboard");
+    });
+    return () => unsubscribe();
+  }, [id, router]);
+
+  useEffect(() => {
+    const unsubscribeAuth = auth.onAuthStateChanged((user) => {
+      if (!user || !id) return;
+
+      const unsubscribeMembers = onSnapshot(collection(db, "circles", id, "members"), (snap) => {
+        const membersData = snap.docs.map(doc => ({ uid: doc.id, ...(doc.data() as any) }));
+        
+        membersData.sort((a, b) => (b.streak || 0) - (a.streak || 0));
+        setMembers(membersData);
+        
+        const me = membersData.find(m => m.uid === user.uid);
+        if (me) setCheckedInToday(me.lastCheckin === todayKey);
+        
+        setLoading(false);
       });
 
-      return () => unsubscribe(); 
-    }
-  }, [step, circleId, router]);
+      return () => unsubscribeMembers();
+    });
 
-  async function handleCreateCircle() {
-    if (!name.trim()) return;
-    setIsLoading(true);
+    return () => unsubscribeAuth();
+  }, [id, todayKey]);
 
-    try {
-      const user = auth.currentUser;
-      if (!user) {
-        router.push("/auth");
-        return;
+  async function checkIn() {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    const memberRef = doc(db, "circles", id, "members", user.uid);
+    const memberSnap = await getDoc(memberRef);
+
+    let newStreak = 1, newCycleDay = 1, newCompletedCycles = 0;
+
+    if (memberSnap.exists()) {
+      const data = memberSnap.data();
+      if (data.lastCheckin === getYesterday()) newStreak = (data.streak || 0) + 1;
+      
+      newCycleDay = (data.cycleDay || 0) + 1;
+      newCompletedCycles = data.completedCycles || 0;
+
+      if (newCycleDay >= circle?.durationDays) {
+        newCompletedCycles += 1;
+        newCycleDay = 0; 
       }
-
-      const docRef = await addDoc(collection(db, "circles"), {
-        name,
-        habit,
-        durationDays: duration,
-        members: [user.uid], 
-        createdAt: serverTimestamp(),
-      });
-
-      await setDoc(doc(db, "circles", docRef.id, "members", user.uid), {
-        email: user.email,
-        name: user.displayName,
-        streak: 0,
-        cycleDay: 0,
-        completedCycles: 0,
-        lastCheckin: ""
-      });
-
-      setCircleId(docRef.id);
-      setStep(2);
-    } catch (error) {
-      console.error("Error creating circle:", error);
-    } finally {
-      setIsLoading(false);
     }
+
+    await setDoc(memberRef, {
+      streak: newStreak,
+      lastCheckin: todayKey,
+      cycleDay: newCycleDay,
+      completedCycles: newCompletedCycles,
+    }, { merge: true });
   }
 
   function copyInviteLink() {
-    const inviteUrl = `${window.location.origin}/join/${circleId}`;
-    navigator.clipboard.writeText(inviteUrl);
+    navigator.clipboard.writeText(`${window.location.origin}/join/${id}`);
     setLinkCopied(true);
     setTimeout(() => setLinkCopied(false), 2000);
   }
 
+  if (loading || !circle) {
+    return (
+      <div className="min-h-screen bg-zinc-50 dark:bg-black p-6 flex flex-col items-center animate-pulse">
+        <div className="w-full h-14 bg-zinc-200 dark:bg-zinc-800 rounded-full mb-8"></div>
+        <div className="w-full h-32 bg-zinc-200 dark:bg-zinc-800 rounded-3xl mb-4"></div>
+        <div className="w-full h-24 bg-zinc-200 dark:bg-zinc-800 rounded-2xl mb-2"></div>
+      </div>
+    );
+  }
+
+  const isWaitingForSquad = members.length < 2;
+
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-black px-6 py-10 text-black dark:text-white selection:bg-zinc-300 dark:selection:bg-zinc-700">
+    <div className="min-h-screen bg-zinc-50 dark:bg-black px-6 py-10 text-black dark:text-white pb-28">
       <div className="mx-auto max-w-md space-y-8 animate-[fadeIn_0.5s_ease-out]">
         
-        <div className="relative flex items-center justify-center pt-2 h-14">
+        <div className="relative flex items-center justify-center pt-2 h-14 mb-4">
           <button
-            onClick={() => step === 2 ? setStep(1) : router.push("/dashboard")}
-            className="absolute left-0 w-12 h-12 flex items-center justify-center rounded-full bg-black text-white shadow-lg transition-all duration-200 hover:bg-zinc-800 hover:-translate-y-1 active:scale-90 active:translate-y-0 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
-            aria-label="Go back"
+            onClick={() => router.push("/dashboard")}
+            className="absolute left-0 w-12 h-12 flex items-center justify-center rounded-full bg-black text-white shadow-lg transition-all active:scale-90 dark:bg-white dark:text-black"
           >
             <span className="text-2xl leading-none -mt-1 font-light">←</span>
           </button>
-          
-          <h1 className="text-xl font-semibold tracking-tight">
-            {step === 1 ? "New Circle" : "Invite Squad"}
+          <h1 className="text-xl font-semibold tracking-tight truncate px-14">
+            {circle.name}
           </h1>
         </div>
 
-        {step === 1 ? (
-          <div className="space-y-8 mt-8 animate-[fadeIn_0.3s_ease-out]">
-            
-            <div className="space-y-3">
-              <label className="text-sm font-medium text-zinc-500 uppercase tracking-wider ml-1">Circle Name</label>
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Morning Warriors"
-                className="w-full rounded-2xl border border-zinc-200 dark:border-zinc-800 p-4 bg-white dark:bg-zinc-950 text-lg transition-all focus:ring-2 focus:ring-black dark:focus:ring-white outline-none"
-              />
-            </div>
-
-            <div className="space-y-3">
-              <label className="text-sm font-medium text-zinc-500 uppercase tracking-wider ml-1">Primary Habit</label>
-              <div className="flex flex-wrap gap-2">
-                {HABIT_OPTIONS.map((h) => (
-                  <button
-                    key={h}
-                    onClick={() => setHabit(h)}
-                    className={`px-4 py-2.5 rounded-full text-sm font-medium transition-all active:scale-95 ${
-                      habit === h 
-                        ? "bg-black text-white dark:bg-white dark:text-black shadow-md" 
-                        : "bg-white text-black border border-zinc-200 dark:bg-zinc-950 dark:border-zinc-800 dark:text-white hover:border-zinc-400"
-                    }`}
-                  >
-                    {h}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <label className="text-sm font-medium text-zinc-500 uppercase tracking-wider ml-1">Duration (Days)</label>
-              <div className="flex gap-2">
-                {DURATION_OPTIONS.map((d) => (
-                  <button
-                    key={d}
-                    onClick={() => setDuration(d)}
-                    className={`flex-1 py-3 rounded-2xl text-sm font-medium transition-all active:scale-95 ${
-                      duration === d 
-                        ? "bg-black text-white dark:bg-white dark:text-black shadow-md" 
-                        : "bg-white text-black border border-zinc-200 dark:bg-zinc-950 dark:border-zinc-800 dark:text-white hover:border-zinc-400"
-                    }`}
-                  >
-                    {d}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="pt-6">
-              <button
-                onClick={handleCreateCircle}
-                disabled={!name.trim() || isLoading}
-                className="w-full flex items-center justify-center gap-2 rounded-2xl bg-black py-4 text-white font-medium shadow-[0_8px_30px_rgb(0,0,0,0.12)] transition-all duration-200 hover:bg-zinc-800 hover:-translate-y-1 hover:shadow-[0_8px_40px_rgb(0,0,0,0.2)] active:scale-95 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 dark:bg-white dark:text-black dark:shadow-[0_8px_30px_rgba(255,255,255,0.15)] dark:hover:bg-zinc-200"
-              >
-                {isLoading ? <span className="animate-pulse">Creating...</span> : "Create & Get Invite Link"}
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center py-6 space-y-8 animate-[fadeIn_0.4s_ease-out]">
-            
-            <div className="relative flex items-center justify-center w-32 h-32">
+        {isWaitingForSquad ? (
+          
+          <div className="flex flex-col items-center justify-center py-8 space-y-8 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm mt-4">
+            <div className="relative flex items-center justify-center w-24 h-24">
               <div className="absolute inset-0 rounded-full border-4 border-black/10 dark:border-white/10 animate-[ping_2s_cubic-bezier(0,0,0.2,1)_infinite]"></div>
-              <div className="absolute inset-4 rounded-full border-4 border-black/20 dark:border-white/20 animate-[ping_2s_cubic-bezier(0,0,0.2,1)_infinite_0.5s]"></div>
-              <div className="relative z-10 w-16 h-16 bg-black dark:bg-white text-white dark:text-black rounded-full flex items-center justify-center text-3xl shadow-xl">
+              <div className="relative z-10 w-12 h-12 bg-black dark:bg-white text-white dark:text-black rounded-full flex items-center justify-center text-xl shadow-xl">
                 ⏳
               </div>
             </div>
 
             <div className="text-center space-y-2">
-              <h2 className="text-2xl font-bold">Waiting for squad...</h2>
-              <p className="text-zinc-500 dark:text-zinc-400 text-sm max-w-[250px] mx-auto">
-                Share the code or link below. The tracker will unlock when the first person joins!
+              <h2 className="text-xl font-bold">Waiting for squad...</h2>
+              <p className="text-zinc-500 dark:text-zinc-400 text-sm">
+                Share the code or link below.
               </p>
             </div>
 
@@ -181,15 +143,15 @@ export default function CreateCirclePage() {
               <div className="w-full p-4 bg-zinc-100 dark:bg-zinc-900 rounded-2xl flex items-center justify-between shadow-inner">
                 <div className="flex flex-col">
                   <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-1">Join Code</span>
-                  <span className="text-sm font-mono font-bold text-black dark:text-white truncate max-w-[150px]">{circleId}</span>
+                  <span className="text-sm font-mono font-bold text-black dark:text-white truncate max-w-[120px]">{id}</span>
                 </div>
                 <button
                   onClick={() => {
-                    navigator.clipboard.writeText(circleId);
+                    navigator.clipboard.writeText(id);
                     setCodeCopied(true);
                     setTimeout(() => setCodeCopied(false), 2000);
                   }}
-                  className="px-4 py-2 bg-white dark:bg-black border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-bold uppercase tracking-wider shadow-sm hover:scale-105 active:scale-95 transition-all"
+                  className="px-4 py-2 bg-white dark:bg-black border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-bold uppercase tracking-wider shadow-sm active:scale-95 transition-all"
                 >
                   {codeCopied ? "Copied ✓" : "Copy Code"}
                 </button>
@@ -197,21 +159,100 @@ export default function CreateCirclePage() {
 
               <div className="w-full p-1 bg-zinc-100 dark:bg-zinc-900 rounded-2xl flex items-center shadow-inner">
                 <div className="flex-1 px-4 py-3 text-xs font-mono truncate text-zinc-500">
-                  {`${window.location.origin}/join/${circleId}`}
+                  {`${window.location.origin}/join/${id}`}
                 </div>
                 <button
                   onClick={copyInviteLink}
-                  className="px-5 py-3 bg-white dark:bg-black border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm font-semibold shadow-sm hover:scale-105 active:scale-95 transition-all"
+                  className="px-4 py-2 bg-white dark:bg-black border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-bold uppercase tracking-wider shadow-sm active:scale-95 transition-all"
                 >
                   {linkCopied ? "Copied ✓" : "Copy Link"}
                 </button>
               </div>
             </div>
+          </div>
 
+        ) : (
+
+          <div className="space-y-8 animate-[fadeIn_0.5s_ease-out]">
+            <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm space-y-4">
+              <div className="flex justify-between items-center">
+                 <div>
+                    <p className="text-xs font-bold uppercase tracking-widest text-zinc-500">{circle.habit}</p>
+                    <p className="text-sm font-medium text-zinc-400">{circle.durationDays} Day Cycle</p>
+                 </div>
+                 <button
+                    onClick={copyInviteLink}
+                    className="text-xs font-bold bg-zinc-100 dark:bg-zinc-900 px-3 py-1.5 rounded-full"
+                 >
+                    {linkCopied ? "Copied! ✓" : "Copy Invite"}
+                 </button>
+              </div>
+              
+              <button
+                onClick={checkIn}
+                disabled={checkedInToday}
+                className={`w-full flex items-center justify-center gap-2 rounded-2xl py-4 text-lg font-bold transition-all duration-200 active:scale-95 ${
+                  checkedInToday 
+                    ? "bg-zinc-200 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-500 cursor-not-allowed" 
+                    : "bg-black text-white dark:bg-white dark:text-black shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:-translate-y-1"
+                }`}
+              >
+                {checkedInToday ? "✓ Checked in Today" : "Check In Now"}
+              </button>
+            </div>
+
+            <div className="space-y-4 pt-4">
+              <div className="flex items-center justify-between ml-1">
+                <h3 className="text-sm font-bold uppercase tracking-widest text-zinc-500">Squad Progress</h3>
+                <span className="text-xs font-bold text-zinc-400">{members.length}/6</span>
+              </div>
+              
+              <div className="space-y-3">
+                {members.map((member) => {
+                  const progress = Math.min(100, ((member.cycleDay || 0) / circle.durationDays) * 100);
+                  const isMe = member.uid === auth.currentUser?.uid;
+                  const displayName = member.name || member.email?.split('@')[0] || "Anonymous";
+
+                  return (
+                    <div 
+                      key={member.uid}
+                      onClick={() => router.push(`/circle/${id}/member/${member.uid}`)}
+                      className="group cursor-pointer bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 hover:border-zinc-300 dark:hover:border-zinc-700 transition-all active:scale-[0.98]"
+                    >
+                      <div className="flex justify-between items-end mb-3">
+                        <div className="flex items-center gap-3">
+                           <div className="w-10 h-10 rounded-full bg-zinc-100 dark:bg-zinc-900 flex items-center justify-center font-bold text-lg">
+                              {displayName.charAt(0).toUpperCase()}
+                           </div>
+                           <div>
+                              <p className="font-semibold text-lg leading-none">
+                                 {displayName} {isMe && <span className="text-xs font-normal text-zinc-400 ml-1">(You)</span>}
+                              </p>
+                              <p className="text-xs font-bold text-zinc-400 mt-1 uppercase tracking-wider">
+                                {member.streak || 0} Day Streak 🔥
+                              </p>
+                           </div>
+                        </div>
+                        <div className="text-right">
+                           <p className="font-bold text-sm">{member.cycleDay || 0} <span className="text-zinc-400 font-normal">/ {circle.durationDays}</span></p>
+                        </div>
+                      </div>
+                      
+                      <div className="h-2.5 w-full bg-zinc-100 dark:bg-zinc-900 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-black dark:bg-white rounded-full transition-all duration-1000 ease-out"
+                          style={{ width: `${progress}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         )}
+
       </div>
     </div>
   );
-}
 }

@@ -8,16 +8,23 @@ import {
   signInWithPopup,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  updateProfile,
 } from "firebase/auth";
-import { auth } from "../lib/firebase";
+import { doc, setDoc } from "firebase/firestore";
+import { auth, db } from "../lib/firebase"; // Added db here!
 
 export default function AuthForm() {
   const router = useRouter();
 
+  const [isSignUp, setIsSignUp] = useState(false); // ✨ NEW: Toggles between Login and Signup modes
+  
+  const [name, setName] = useState("");
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  
   const [msg, setMsg] = useState("");
-  const [isLoading, setIsLoading] = useState(false); // NEW: Tracks loading state
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     if (auth.currentUser) {
@@ -30,7 +37,14 @@ export default function AuthForm() {
     setMsg("");
     try {
       const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
+      const result = await signInWithPopup(auth, provider);
+      
+      // Save their Google data to a global users collection just to be safe!
+      await setDoc(doc(db, "users", result.user.uid), {
+        name: result.user.displayName,
+        email: result.user.email,
+      }, { merge: true });
+
       router.push("/dashboard");
     } catch (error: any) {
       console.error("Google Auth Error:", error);
@@ -39,46 +53,63 @@ export default function AuthForm() {
     }
   }
 
-  async function loginEmail() {
+  async function handleEmailAuth() {
     setIsLoading(true);
     setMsg("");
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      router.push("/dashboard");
-    } catch (error: any) {
-      console.error("Email Login Error:", error);
-      setMsg(`Login Error: ${error.message}`);
-      setIsLoading(false);
-    }
-  }
+      if (isSignUp) {
+        // ✨ CREATE ACCOUNT FLOW
+        if (!name.trim() || !username.trim()) {
+          setMsg("Please enter your Name and Username.");
+          setIsLoading(false);
+          return;
+        }
 
-  async function signupEmail() {
-    setIsLoading(true);
-    setMsg("");
-    try {
-      await createUserWithEmailAndPassword(auth, email, password);
+        const result = await createUserWithEmailAndPassword(auth, email, password);
+        
+        // 1. Attach the name permanently to their Firebase Auth account
+        await updateProfile(result.user, { displayName: name });
+
+        // 2. Save everything to a central 'users' database collection
+        await setDoc(doc(db, "users", result.user.uid), {
+          name,
+          username: username.toLowerCase().replace(/\s/g, ""), // Removes spaces for a clean username
+          email,
+        });
+
+      } else {
+        // ✨ LOGIN FLOW
+        await signInWithEmailAndPassword(auth, email, password);
+      }
+      
       router.push("/dashboard");
     } catch (error: any) {
-      console.error("Signup Error:", error);
-      setMsg(`Signup Error: ${error.message}`);
+      console.error("Auth Error:", error);
+      // Clean up Firebase's ugly error messages
+      if (error.code === 'auth/email-already-in-use') setMsg("An account with this email already exists.");
+      else if (error.code === 'auth/invalid-credential') setMsg("Incorrect email or password.");
+      else setMsg(error.message);
+      
       setIsLoading(false);
     }
   }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-white dark:bg-black px-6 text-black dark:text-white selection:bg-zinc-300 dark:selection:bg-zinc-700">
-      {/* Added a subtle fade-in animation to the main container */}
       <div className="w-full max-w-sm space-y-6 animate-[fadeIn_0.5s_ease-out]">
+        
         <div className="flex justify-center">
-          {/* Added a bounce animation to the logo on load */}
           <div className="animate-[bounce_1s_ease-in-out]">
             <Image src="/logo.png" alt="logo" width={64} height={64} className="rounded-xl" />
           </div>
         </div>
 
-        <h1 className="text-center text-3xl font-bold tracking-tight">
-          InSyncs
-        </h1>
+        <div className="text-center space-y-1">
+          <h1 className="text-3xl font-bold tracking-tight">InSyncs</h1>
+          <p className="text-sm text-zinc-500">
+            {isSignUp ? "Create an account to join your squad" : "Welcome back"}
+          </p>
+        </div>
 
         {msg && (
           <div className="p-3 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg text-sm text-center transition-all">
@@ -89,17 +120,9 @@ export default function AuthForm() {
         <button
           onClick={loginGoogle}
           disabled={isLoading}
-          // Tailwind magic: hover effects, click scaling (active:scale-95), and smooth transitions
           className="w-full flex items-center justify-center gap-2 rounded-full bg-black py-3.5 text-white font-medium transition-all duration-200 hover:bg-zinc-800 hover:shadow-lg active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed dark:bg-white dark:text-black dark:hover:bg-zinc-200"
         >
-          {isLoading ? (
-             <span className="animate-pulse">Connecting...</span>
-          ) : (
-            <>
-              {/* Optional: Add a Google SVG icon here if you have one! */}
-              Continue with Google
-            </>
-          )}
+          {isLoading ? <span className="animate-pulse">Connecting...</span> : "Continue with Google"}
         </button>
 
         <div className="relative flex items-center py-2">
@@ -108,7 +131,27 @@ export default function AuthForm() {
           <div className="flex-grow border-t border-zinc-200 dark:border-zinc-800"></div>
         </div>
 
+        {/* Dynamic Form Fields */}
         <div className="space-y-3">
+          {isSignUp && (
+            <div className="grid grid-cols-2 gap-3 animate-[fadeIn_0.3s_ease-out]">
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Full Name"
+                disabled={isLoading}
+                className="w-full rounded-xl border border-zinc-200 dark:border-zinc-800 p-3.5 bg-transparent transition-all focus:ring-2 focus:ring-black dark:focus:ring-white outline-none disabled:opacity-50"
+              />
+              <input
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Username"
+                disabled={isLoading}
+                className="w-full rounded-xl border border-zinc-200 dark:border-zinc-800 p-3.5 bg-transparent transition-all focus:ring-2 focus:ring-black dark:focus:ring-white outline-none disabled:opacity-50 lowercase"
+              />
+            </div>
+          )}
+
           <input
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -127,23 +170,29 @@ export default function AuthForm() {
           />
         </div>
 
-        <div className="flex gap-3">
-          <button
-            onClick={loginEmail}
-            disabled={isLoading}
-            className="w-full rounded-full border border-zinc-200 dark:border-zinc-800 py-3.5 font-medium transition-all duration-200 hover:bg-zinc-50 dark:hover:bg-zinc-900 active:scale-95 disabled:opacity-50"
-          >
-            Sign In
-          </button>
+        {/* Primary Action Button */}
+        <button
+          onClick={handleEmailAuth}
+          disabled={isLoading}
+          className="w-full rounded-full border border-zinc-200 dark:border-zinc-800 py-3.5 font-medium transition-all duration-200 hover:bg-zinc-50 dark:hover:bg-zinc-900 active:scale-95 disabled:opacity-50"
+        >
+          {isSignUp ? "Create Account" : "Sign In"}
+        </button>
 
+        {/* Toggle Mode Button */}
+        <div className="text-center pt-2">
           <button
-            onClick={signupEmail}
+            onClick={() => {
+              setIsSignUp(!isSignUp);
+              setMsg(""); // Clear errors when toggling
+            }}
             disabled={isLoading}
-            className="w-full rounded-full border border-zinc-200 dark:border-zinc-800 py-3.5 font-medium transition-all duration-200 hover:bg-zinc-50 dark:hover:bg-zinc-900 active:scale-95 disabled:opacity-50"
+            className="text-sm text-zinc-500 hover:text-black dark:hover:text-white transition-colors"
           >
-            Sign Up
+            {isSignUp ? "Already have an account? Sign In" : "Don't have an account? Sign Up"}
           </button>
         </div>
+
       </div>
     </div>
   );

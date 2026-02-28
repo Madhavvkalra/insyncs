@@ -215,18 +215,22 @@ export default function DashboardPage() {
         </div>
       </div>
 
+         {/* Floating Action Buttons */}
       {!isLoading && (
         <div className="fixed bottom-8 left-0 right-0 px-6 flex justify-center z-50 pointer-events-none animate-[fadeIn_0.5s_ease-out_0.2s_both]">
-          <div className="w-full max-w-md pointer-events-auto">
+          <div className="w-full max-w-md pointer-events-auto grid grid-cols-2 gap-3">
             <button
               onClick={() => router.push("/create")}
-              className="w-full flex items-center justify-center gap-2 rounded-2xl bg-black py-4 text-white font-medium shadow-[0_8px_30px_rgb(0,0,0,0.12)] transition-all duration-200 hover:bg-zinc-800 hover:-translate-y-1 hover:shadow-[0_8px_40px_rgb(0,0,0,0.2)] active:scale-95 active:translate-y-0 dark:bg-white dark:text-black dark:shadow-[0_8px_30px_rgba(255,255,255,0.15)] dark:hover:bg-zinc-200"
+              className="w-full flex items-center justify-center gap-2 rounded-2xl bg-black py-4 text-white font-medium shadow-[0_8px_30px_rgb(0,0,0,0.12)] transition-all duration-200 hover:bg-zinc-800 hover:-translate-y-1 active:scale-95 dark:bg-white dark:text-black"
             >
-              <span className="text-xl leading-none -mt-1">+</span> Create New Circle
+              <span className="text-xl leading-none -mt-1">+</span> Create
+            </button>
+            <button
+              onClick={() => router.push("/join")}
+              className="w-full flex items-center justify-center gap-2 rounded-2xl bg-white text-black border border-zinc-200 py-4 font-medium shadow-[0_8px_30px_rgb(0,0,0,0.05)] transition-all duration-200 hover:bg-zinc-50 hover:-translate-y-1 active:scale-95 dark:bg-zinc-950 dark:border-zinc-800 dark:text-white dark:hover:bg-zinc-900"
+            >
+              🔑 Join Code
             </button>
           </div>
         </div>
       )}
-    </div>
-  );
-}

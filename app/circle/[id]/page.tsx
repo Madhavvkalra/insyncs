@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { doc, getDoc, setDoc, onSnapshot, collection } from "firebase/firestore";
-import { db, auth } from "../../../lib/firebase"; 
-import PageTransition from "../../../components/PageTransition"; // Fixed path!
+import { db, auth } from "../../lib/firebase"; 
+import PageTransition from "../../components/PageTransition"; // Fixed path!
 
 export default function CirclePage() {
   const params = useParams();

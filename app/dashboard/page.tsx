@@ -5,7 +5,6 @@ import { collection, query, where, onSnapshot, deleteDoc, doc } from "firebase/f
 import { db, auth } from "../lib/firebase";
 import { useRouter } from "next/navigation";
 
-// ✨ SWIPE-TO-DELETE & INSTANT-CLICK CARD COMPONENT
 function SwipeableCircleCard({ circle, isNavigating, onNavigate, onDelete }: any) {
   const [startX, setStartX] = useState(0);
   const [offsetX, setOffsetX] = useState(0);
@@ -36,7 +35,6 @@ function SwipeableCircleCard({ circle, isNavigating, onNavigate, onDelete }: any
   return (
     <div className={`relative rounded-2xl bg-red-500 overflow-hidden shadow-sm transition-transform duration-200 ${isNavigating ? "scale-[0.98]" : "active:scale-[0.98]"}`}>
       
-      {/* Background Delete Button */}
       <div className="absolute right-0 top-0 bottom-0 w-[80px] flex items-center justify-center">
         <button
           onClick={(e) => {
@@ -50,7 +48,6 @@ function SwipeableCircleCard({ circle, isNavigating, onNavigate, onDelete }: any
         </button>
       </div>
 
-      {/* Foreground Interactive Card */}
       <div
         onClick={() => {
           if (isSwiped) {
@@ -73,18 +70,16 @@ function SwipeableCircleCard({ circle, isNavigating, onNavigate, onDelete }: any
           transition: startX === 0 ? "transform 0.2s ease-out" : "none",
         }}
       >
-        <div className="flex items-center gap-4 pointer-events-none">
-          <div className="w-12 h-12 flex items-center justify-center rounded-full bg-black dark:bg-white text-white dark:text-black font-bold text-lg">
+        <div className="flex items-center gap-4 pointer-events-none w-full">
+          <div className="w-12 h-12 flex-shrink-0 flex items-center justify-center rounded-full bg-black dark:bg-white text-white dark:text-black font-bold text-lg">
             {circle.name ? circle.name.charAt(0).toUpperCase() : "#"}
           </div>
-                   {/* Added min-w-0 to the container to handle text truncation cleanly */}
-          <div className="flex-1 min-w-0 pointer-events-none">
+          
+          <div className="flex-1 min-w-0 pr-2">
             <div className="flex items-center gap-2">
-              {/* Added truncate so long names get "..." instead of squishing the badge */}
               <h2 className="font-semibold text-lg truncate">
                 {circle.name}
               </h2>
-              {/* Added flex-shrink-0 and whitespace-nowrap for a perfect pill shape! */}
               <span className={`flex-shrink-0 whitespace-nowrap text-[10px] px-2.5 py-0.5 rounded-full uppercase tracking-wider font-bold ${
                 memberCount >= 6 
                   ? "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400"
@@ -105,16 +100,15 @@ function SwipeableCircleCard({ circle, isNavigating, onNavigate, onDelete }: any
         </div>
 
         {isNavigating ? (
-          <div className="w-5 h-5 border-2 border-zinc-200 border-t-black rounded-full animate-spin dark:border-zinc-700 dark:border-t-white pointer-events-none"></div>
+          <div className="w-5 h-5 flex-shrink-0 border-2 border-zinc-200 border-t-black rounded-full animate-spin dark:border-zinc-700 dark:border-t-white pointer-events-none"></div>
         ) : (
-          <span className="text-zinc-400 pointer-events-none">➔</span>
+          <span className="text-zinc-400 flex-shrink-0 pointer-events-none">➔</span>
         )}
       </div>
     </div>
   );
 }
 
-// ✨ MAIN DASHBOARD PAGE
 export default function DashboardPage() {
   const [circles, setCircles] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -215,7 +209,6 @@ export default function DashboardPage() {
         </div>
       </div>
 
-         {/* Floating Action Buttons */}
       {!isLoading && (
         <div className="fixed bottom-8 left-0 right-0 px-6 flex justify-center z-50 pointer-events-none animate-[fadeIn_0.5s_ease-out_0.2s_both]">
           <div className="w-full max-w-md pointer-events-auto grid grid-cols-2 gap-3">
@@ -234,3 +227,6 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}

@@ -21,7 +21,6 @@ export default function CirclePage() {
   const [isLocating, setIsLocating] = useState(false);
   const [locationError, setLocationError] = useState("");
 
-  // ✨ LIVE TIMER STATE
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
   const todayKey = new Date().toISOString().split("T")[0];
@@ -32,16 +31,15 @@ export default function CirclePage() {
     return d.toISOString().split("T")[0];
   }
 
+  // --- MATH & FORMATTING UTILS ---
   function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
     const R = 6371e3; 
     const rad = Math.PI / 180;
     const dLat = (lat2 - lat1) * rad;
     const dLon = (lon2 - lon1) * rad;
-    
     const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
               Math.cos(lat1 * rad) * Math.cos(lat2 * rad) *
               Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c; 
   }
@@ -54,6 +52,7 @@ export default function CirclePage() {
     return `${m}m ${s}s`;
   }
 
+  // --- DATA FETCHING ---
   useEffect(() => {
     if (!id) return;
     const unsubscribe = onSnapshot(doc(db, "circles", id), (snap) => {
@@ -69,7 +68,6 @@ export default function CirclePage() {
 
       const unsubscribeMembers = onSnapshot(collection(db, "circles", id, "members"), (snap) => {
         const membersData = snap.docs.map(doc => ({ uid: doc.id, ...(doc.data() as any) }));
-        
         membersData.sort((a, b) => (b.streak || 0) - (a.streak || 0));
         setMembers(membersData);
         setLoading(false);
@@ -81,11 +79,14 @@ export default function CirclePage() {
     return () => unsubscribeAuth();
   }, [id]);
 
-  // ✨ LIVE TIMER ENGINE: Runs independently if they are in "working_out" state
+  // --- STATE CALCULATION ---
   const me = members.find(m => m.uid === auth.currentUser?.uid);
   const isNewDay = me?.todayDate !== todayKey;
   const currentState = isNewDay ? 'none' : (me?.todayState || 'none');
+  const checkedInToday = me?.lastCheckin === todayKey || currentState === 'completed';
+  const hasLockedLocation = !!me?.lockedLocation;
 
+  // --- LIVE TIMER ENGINE (Only runs if working out) ---
   useEffect(() => {
     let interval: any;
     if (currentState === 'working_out' && me?.workoutStartTime) {
@@ -98,33 +99,28 @@ export default function CirclePage() {
     return () => clearInterval(interval);
   }, [currentState, me?.workoutStartTime]);
 
+  // ==========================================
+  // HABIT: GYM WORKFLOW LOGIC
+  // ==========================================
   async function lockLocation() {
     setLocationError("");
     setIsLocating(true);
-
     if (!navigator.geolocation) {
       setLocationError("Your device does not support location tracking.");
       setIsLocating(false);
       return;
     }
-
     if (me?.lockedLocation) {
         setIsLocating(false);
         return;
     }
-
     navigator.geolocation.getCurrentPosition(
       async (position) => {
-        const { latitude, longitude } = position.coords;
         const user = auth.currentUser;
         if (!user) return;
-
-        const memberRef = doc(db, "circles", id, "members", user.uid);
-        
-        await setDoc(memberRef, {
-          lockedLocation: { lat: latitude, lng: longitude }
+        await setDoc(doc(db, "circles", id, "members", user.uid), {
+          lockedLocation: { lat: position.coords.latitude, lng: position.coords.longitude }
         }, { merge: true });
-        
         setIsLocating(false);
       },
       (error) => {
@@ -135,46 +131,34 @@ export default function CirclePage() {
     );
   }
 
-  // ✨ PHASE 1: Verify GPS (Unlocks the timer)
-  async function verifyCheckIn() {
+  async function verifyGymArrival() {
     setLocationError("");
     setIsLocating(true);
-
     if (!navigator.geolocation) {
       setLocationError("Your device does not support location tracking.");
       setIsLocating(false);
       return;
     }
-
     navigator.geolocation.getCurrentPosition(
       async (position) => {
-        const { latitude, longitude } = position.coords;
         const user = auth.currentUser;
         if (!user) return;
-
-        const memberRef = doc(db, "circles", id, "members", user.uid);
-        
         if (!me?.lockedLocation) {
           setLocationError("Please lock your Gym Location first!");
           setIsLocating(false);
           return;
         }
-
-        const dist = calculateDistance(latitude, longitude, me.lockedLocation.lat, me.lockedLocation.lng);
-        
+        const dist = calculateDistance(position.coords.latitude, position.coords.longitude, me.lockedLocation.lat, me.lockedLocation.lng);
         if (dist > 150) {
           setLocationError(`Denied. You are ${Math.round(dist)}m away from your locked gym.`);
           setIsLocating(false);
           return;
         }
-
-        // GPS Passed! Move to 'verified' state. (Streak is NOT counted yet)
-        await setDoc(memberRef, {
+        await setDoc(doc(db, "circles", id, "members", user.uid), {
           todayDate: todayKey,
           todayState: 'verified',
           todayDuration: 0
         }, { merge: true });
-
         setIsLocating(false);
       },
       (error) => {
@@ -185,42 +169,28 @@ export default function CirclePage() {
     );
   }
 
-  // ✨ PHASE 2: Start Timer
   async function startWorkout() {
     const user = auth.currentUser;
     if (!user) return;
-    const memberRef = doc(db, "circles", id, "members", user.uid);
-    
-    await setDoc(memberRef, {
+    await setDoc(doc(db, "circles", id, "members", user.uid), {
       todayState: 'working_out',
       workoutStartTime: Date.now()
     }, { merge: true });
   }
 
-  // ✨ PHASE 3: Checkout & Log Streak
   async function endWorkout() {
     const user = auth.currentUser;
     if (!user || !me) return;
-    const memberRef = doc(db, "circles", id, "members", user.uid);
-    
-    // Calculate final duration in minutes
     const durationMinutes = Math.round((Date.now() - me.workoutStartTime) / 60000);
-
-    // Now we log the actual streak!
-    let newStreak = 1, newCycleDay = 1, newCompletedCycles = me.completedCycles || 0;
-
-    if (me.lastCheckin === getYesterday()) {
-      newStreak = (me.streak || 0) + 1;
-    }
     
-    newCycleDay = (me.cycleDay || 0) + 1;
-
+    let newStreak = 1, newCycleDay = (me.cycleDay || 0) + 1, newCompletedCycles = me.completedCycles || 0;
+    if (me.lastCheckin === getYesterday()) newStreak = (me.streak || 0) + 1;
     if (newCycleDay >= circle?.durationDays) {
       newCompletedCycles += 1;
       newCycleDay = 0; 
     }
 
-    await setDoc(memberRef, {
+    await setDoc(doc(db, "circles", id, "members", user.uid), {
       todayState: 'completed',
       todayDuration: durationMinutes,
       streak: newStreak,
@@ -230,6 +200,31 @@ export default function CirclePage() {
     }, { merge: true });
   }
 
+  // ==========================================
+  // GENERIC WORKFLOW LOGIC (Fallback)
+  // ==========================================
+  async function standardCheckIn() {
+    const user = auth.currentUser;
+    if (!user || !me) return;
+    
+    let newStreak = 1, newCycleDay = (me.cycleDay || 0) + 1, newCompletedCycles = me.completedCycles || 0;
+    if (me.lastCheckin === getYesterday()) newStreak = (me.streak || 0) + 1;
+    if (newCycleDay >= circle?.durationDays) {
+      newCompletedCycles += 1;
+      newCycleDay = 0; 
+    }
+
+    await setDoc(doc(db, "circles", id, "members", user.uid), {
+      todayState: 'completed',
+      streak: newStreak,
+      lastCheckin: todayKey,
+      cycleDay: newCycleDay,
+      completedCycles: newCompletedCycles,
+      todayDate: todayKey
+    }, { merge: true });
+  }
+
+  // --- UTILS ---
   function copyInviteLink() {
     navigator.clipboard.writeText(`${window.location.origin}/join/${id}`);
     setLinkCopied(true);
@@ -247,14 +242,12 @@ export default function CirclePage() {
   }
 
   const isWaitingForSquad = members.length < 2;
-  const hasLockedLocation = !!me?.lockedLocation;
 
   return (
     <PageTransition> 
       <div className="min-h-screen bg-zinc-50 px-6 py-10 text-black dark:bg-black dark:text-white pb-28">
         <div className="mx-auto max-w-md space-y-8 animate-[fadeIn_0.5s_ease-out]">
           
-          {/* Header */}
           <div className="relative flex items-center justify-center pt-2 h-14 mb-4">
             <button
               onClick={() => router.push("/dashboard")}
@@ -276,14 +269,12 @@ export default function CirclePage() {
                   ⏳
                 </div>
               </div>
-
               <div className="text-center space-y-2">
                 <h2 className="text-xl font-bold">Waiting for squad...</h2>
                 <p className="text-zinc-500 dark:text-zinc-400 text-sm">
                   Share the code or link below.
                 </p>
               </div>
-
               <div className="w-full space-y-3">
                 <div className="w-full p-4 bg-zinc-100 dark:bg-zinc-900 rounded-2xl flex items-center justify-between shadow-inner">
                   <div className="flex flex-col">
@@ -301,7 +292,6 @@ export default function CirclePage() {
                     {codeCopied ? "Copied ✓" : "Copy Code"}
                   </button>
                 </div>
-
                 <div className="w-full p-1 bg-zinc-100 dark:bg-zinc-900 rounded-2xl flex items-center shadow-inner">
                   <div className="flex-1 px-4 py-3 text-xs font-mono truncate text-zinc-500">
                     {`${window.location.origin}/join/${id}`}
@@ -320,7 +310,7 @@ export default function CirclePage() {
 
             <div className="space-y-8 animate-[fadeIn_0.5s_ease-out]">
               
-              {/* Accountability Card */}
+              {/* ACCOUNTABILITY CARD - RENDERS DYNAMICALLY BASED ON HABIT TYPE */}
               <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm space-y-4">
                 
                 <div className="flex justify-between items-center">
@@ -336,112 +326,129 @@ export default function CirclePage() {
                    </button>
                 </div>
 
-                {/* Coordinates UI */}
-                <div className="w-full p-4 bg-zinc-50 dark:bg-zinc-900/50 rounded-2xl border border-zinc-200 dark:border-zinc-800 space-y-4">
-                  <div className="flex items-center justify-between">
-                      <div className="flex flex-col gap-1">
-                          <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Gym Coordinates Secured</span>
-                          
-                          <p className="text-xs text-zinc-600 dark:text-zinc-400 font-mono tracking-tight flex items-center gap-2">
-                              {hasLockedLocation ? (
-                                <>
-                                  <svg className="w-3 h-3 text-green-600 dark:text-green-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                                      <polyline points="20 6 9 17 4 12"></polyline>
-                                  </svg>
-                                  {me?.lockedLocation.lat.toFixed(4)}° N, {me?.lockedLocation.lng.toFixed(4)}° W
-                                </>
-                              ) : (
-                                "⚠ Set Location Required"
-                              )}
-                          </p>
+                {/* --- GYM WORKFLOW UI --- */}
+                {circle.habit === "Gym" ? (
+                  <>
+                    <div className="w-full p-4 bg-zinc-50 dark:bg-zinc-900/50 rounded-2xl border border-zinc-200 dark:border-zinc-800 space-y-4">
+                      <div className="flex items-center justify-between">
+                          <div className="flex flex-col gap-1">
+                              <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Gym Coordinates Secured</span>
+                              <p className="text-xs text-zinc-600 dark:text-zinc-400 font-mono tracking-tight flex items-center gap-2">
+                                  {hasLockedLocation ? (
+                                    <>
+                                      <svg className="w-3 h-3 text-green-600 dark:text-green-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                                          <polyline points="20 6 9 17 4 12"></polyline>
+                                      </svg>
+                                      {me?.lockedLocation.lat.toFixed(4)}° N, {me?.lockedLocation.lng.toFixed(4)}° W
+                                    </>
+                                  ) : (
+                                    "⚠ Set Location Required"
+                                  )}
+                              </p>
+                          </div>
+                          <div className="flex flex-col items-center gap-1.5 shrink-0 px-4 py-3 rounded-xl border border-dashed border-zinc-300 dark:border-zinc-700">
+                              <svg className="w-4 h-4 text-zinc-400 dark:text-zinc-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                                  <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                              </svg>
+                              <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Locked</span>
+                          </div>
                       </div>
 
-                      <div className="flex flex-col items-center gap-1.5 shrink-0 px-4 py-3 rounded-xl border border-dashed border-zinc-300 dark:border-zinc-700">
-                          <svg className="w-4 h-4 text-zinc-400 dark:text-zinc-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-                              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                      {hasLockedLocation && (
+                        <a 
+                          href={`http://googleusercontent.com/maps.google.com/maps?q=${me.lockedLocation.lat},${me.lockedLocation.lng}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[10px] font-bold uppercase tracking-wider text-blue-500 hover:text-blue-600 dark:text-blue-400 transition-colors flex items-center justify-center gap-1.5"
+                        >
+                          <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                              <circle cx="12" cy="10" r="3"></circle>
                           </svg>
-                          <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Locked</span>
-                      </div>
-                  </div>
+                          View locked gym on map 🗺️
+                        </a>
+                      )}
 
-                  {hasLockedLocation && (
-                    <a 
-                      href={`http://googleusercontent.com/maps.google.com/maps?q=${me.lockedLocation.lat},${me.lockedLocation.lng}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[10px] font-bold uppercase tracking-wider text-blue-500 hover:text-blue-600 dark:text-blue-400 transition-colors flex items-center justify-center gap-1.5"
-                    >
-                      <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
-                          <circle cx="12" cy="10" r="3"></circle>
-                      </svg>
-                      View locked gym on map 🗺️
-                    </a>
-                  )}
-
-                  {!hasLockedLocation && (
-                    <button
-                        onClick={lockLocation}
-                        disabled={isLocating}
-                        className="w-full flex items-center justify-center gap-2 rounded-xl bg-black py-4 text-white font-medium shadow-sm transition-all active:scale-95 disabled:opacity-50 dark:bg-white dark:text-black"
-                    >
-                        {isLocating ? "Set Location..." : "Set Location"}
-                    </button>
-                  )}
-                </div>
-
-                {locationError && (
-                  <div className="p-3 bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 rounded-xl text-xs font-medium text-center">
-                    {locationError}
-                  </div>
-                )}
-                
-                {/* ✨ DYNAMIC ACTION BUTTON BASED ON STATE */}
-                <div className="pt-2">
-                  {currentState === 'completed' ? (
-                    <div className="w-full flex items-center justify-center gap-2 rounded-2xl py-4 text-lg font-bold bg-zinc-100 text-green-600 dark:bg-zinc-900 dark:text-green-400 border border-green-200 dark:border-green-900/50">
-                      ✓ Workout Logged ({me?.todayDuration} min)
+                      {!hasLockedLocation && (
+                        <button
+                            onClick={lockLocation}
+                            disabled={isLocating}
+                            className="w-full flex items-center justify-center gap-2 rounded-xl bg-black py-4 text-white font-medium shadow-sm transition-all active:scale-95 disabled:opacity-50 dark:bg-white dark:text-black"
+                        >
+                            {isLocating ? "Set Location..." : "Set Location"}
+                        </button>
+                      )}
                     </div>
-                  ) : currentState === 'working_out' ? (
-                    <div className="space-y-3">
-                      <div className="w-full flex flex-col items-center justify-center gap-1 rounded-2xl py-6 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
-                        <span className="text-xs font-bold uppercase tracking-widest text-zinc-500 animate-pulse">Session Active</span>
-                        <span className="text-4xl font-mono font-bold tracking-tight">{formatTime(elapsedSeconds)}</span>
+
+                    {locationError && (
+                      <div className="p-3 bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 rounded-xl text-xs font-medium text-center">
+                        {locationError}
                       </div>
-                      <button
-                        onClick={endWorkout}
-                        className="w-full flex items-center justify-center gap-2 rounded-2xl bg-red-500 py-4 text-white text-lg font-bold shadow-lg transition-all active:scale-95 hover:bg-red-600"
-                      >
-                        Stop & Checkout
-                      </button>
+                    )}
+                    
+                    <div className="pt-2">
+                      {currentState === 'completed' ? (
+                        <div className="w-full flex items-center justify-center gap-2 rounded-2xl py-4 text-lg font-bold bg-zinc-100 text-green-600 dark:bg-zinc-900 dark:text-green-400 border border-green-200 dark:border-green-900/50">
+                          ✓ Workout Logged ({me?.todayDuration} min)
+                        </div>
+                      ) : currentState === 'working_out' ? (
+                        <div className="space-y-3">
+                          <div className="w-full flex flex-col items-center justify-center gap-1 rounded-2xl py-6 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
+                            <span className="text-xs font-bold uppercase tracking-widest text-zinc-500 animate-pulse">Session Active</span>
+                            <span className="text-4xl font-mono font-bold tracking-tight">{formatTime(elapsedSeconds)}</span>
+                          </div>
+                          <button
+                            onClick={endWorkout}
+                            className="w-full flex items-center justify-center gap-2 rounded-2xl bg-red-500 py-4 text-white text-lg font-bold shadow-lg transition-all active:scale-95 hover:bg-red-600"
+                          >
+                            Stop & Checkout
+                          </button>
+                        </div>
+                      ) : currentState === 'verified' ? (
+                        <button
+                          onClick={startWorkout}
+                          className="w-full flex items-center justify-center gap-2 rounded-2xl bg-black py-4 text-white text-lg font-bold shadow-md transition-all active:scale-95 hover:-translate-y-1 dark:bg-white dark:text-black"
+                        >
+                          ▶ Start Workout
+                        </button>
+                      ) : (
+                        <button
+                          onClick={verifyGymArrival}
+                          disabled={!hasLockedLocation || isLocating}
+                          className={`w-full flex items-center justify-center gap-2 rounded-2xl py-4 text-lg font-bold transition-all duration-200 active:scale-95 ${
+                            !hasLockedLocation
+                              ? "bg-zinc-200 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-500 cursor-not-allowed" 
+                              : "bg-black text-white dark:bg-white dark:text-black shadow-md hover:-translate-y-1"
+                          }`}
+                        >
+                          {isLocating ? "Verifying GPS..." : 
+                           !hasLockedLocation ? "Lock Gym to Start" : 
+                           "Verify GPS & Arrive"}
+                        </button>
+                      )}
                     </div>
-                  ) : currentState === 'verified' ? (
+                  </>
+                ) : (
+                  
+                  // --- NON-GYM WORKFLOW UI (Fallback) ---
+                  <div className="pt-2">
                     <button
-                      onClick={startWorkout}
-                      className="w-full flex items-center justify-center gap-2 rounded-2xl bg-black py-4 text-white text-lg font-bold shadow-md transition-all active:scale-95 hover:-translate-y-1 dark:bg-white dark:text-black"
-                    >
-                      ▶ Start Workout
-                    </button>
-                  ) : (
-                    <button
-                      onClick={verifyCheckIn}
-                      disabled={!hasLockedLocation || isLocating}
+                      onClick={standardCheckIn}
+                      disabled={checkedInToday}
                       className={`w-full flex items-center justify-center gap-2 rounded-2xl py-4 text-lg font-bold transition-all duration-200 active:scale-95 ${
-                        !hasLockedLocation
+                        checkedInToday 
                           ? "bg-zinc-200 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-500 cursor-not-allowed" 
                           : "bg-black text-white dark:bg-white dark:text-black shadow-md hover:-translate-y-1"
                       }`}
                     >
-                      {isLocating ? "Verifying GPS..." : 
-                       !hasLockedLocation ? "Lock Gym to Start" : 
-                       "Verify GPS & Arrive"}
+                      {checkedInToday ? "✓ Checked in Today" : "Check In Now"}
                     </button>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
 
-              {/* Squad Leaderboard */}
+              {/* SQUAD LEADERBOARD - TAGS RENDER DYNAMICALLY */}
               <div className="space-y-4 pt-4">
                 <div className="flex items-center justify-between ml-1">
                   <h3 className="text-sm font-bold uppercase tracking-widest text-zinc-500">Squad Progress</h3>
@@ -455,7 +462,6 @@ export default function CirclePage() {
                     const displayName = member.name || member.email?.split('@')[0] || "Anonymous";
                     const hasLocked = !!member.lockedLocation;
                     
-                    // ✨ Check live status for badges
                     const isCompletedToday = member.todayDate === todayKey && member.todayState === 'completed';
                     const isWorkingOut = member.todayDate === todayKey && member.todayState === 'working_out';
 
@@ -469,8 +475,7 @@ export default function CirclePage() {
                           <div className="flex items-center gap-3">
                              <div className="w-10 h-10 rounded-full bg-zinc-100 dark:bg-zinc-900 flex items-center justify-center font-bold text-lg relative">
                                 {displayName.charAt(0).toUpperCase()}
-                                {/* Active Dot Indicator */}
-                                {isWorkingOut && <div className="absolute top-0 right-0 w-3 h-3 bg-blue-500 border-2 border-white dark:border-zinc-950 rounded-full animate-pulse"></div>}
+                                {isWorkingOut && circle.habit === "Gym" && <div className="absolute top-0 right-0 w-3 h-3 bg-blue-500 border-2 border-white dark:border-zinc-950 rounded-full animate-pulse"></div>}
                              </div>
                              <div>
                                 <p className="font-semibold text-lg leading-none flex items-center gap-2">
@@ -479,31 +484,37 @@ export default function CirclePage() {
                                 </p>
                                 
                                 <div className="mt-1 flex items-center gap-2">
-                                  {isWorkingOut ? (
-                                    <span className="text-[10px] font-bold uppercase tracking-wider text-blue-500 animate-pulse">
-                                      ⏱️ At the Gym
-                                    </span>
-                                  ) : isCompletedToday ? (
-                                    <span className="text-[10px] font-bold uppercase tracking-wider text-green-600 dark:text-green-400">
-                                      ✓ {member.todayDuration} Min Workout
-                                    </span>
+                                  {circle.habit === "Gym" ? (
+                                    isWorkingOut ? (
+                                      <span className="text-[10px] font-bold uppercase tracking-wider text-blue-500 animate-pulse">
+                                        ⏱️ At the Gym
+                                      </span>
+                                    ) : isCompletedToday ? (
+                                      <span className="text-[10px] font-bold uppercase tracking-wider text-green-600 dark:text-green-400">
+                                        ✓ {member.todayDuration} Min Workout
+                                      </span>
+                                    ) : (
+                                      <>
+                                        <p className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
+                                          {hasLocked ? <span className="text-zinc-500">Location Locked</span> : <span className="text-orange-500">⚠ Setup Pending</span>}
+                                        </p>
+                                        {hasLocked && !isMe && (
+                                          <a 
+                                            href={`http://googleusercontent.com/maps.google.com/maps?q=${member.lockedLocation.lat},${member.lockedLocation.lng}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            onClick={(e) => e.stopPropagation()} 
+                                            className="text-[10px] font-bold uppercase tracking-wider text-blue-500 hover:text-blue-600 dark:text-blue-400 transition-colors"
+                                          >
+                                            (Map 🗺️)
+                                          </a>
+                                        )}
+                                      </>
+                                    )
                                   ) : (
-                                    <>
-                                      <p className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
-                                        {hasLocked ? <span className="text-zinc-500">Location Locked</span> : <span className="text-orange-500">⚠ Setup Pending</span>}
-                                      </p>
-                                      {hasLocked && !isMe && (
-                                        <a 
-                                          href={`http://googleusercontent.com/maps.google.com/maps?q=${member.lockedLocation.lat},${member.lockedLocation.lng}`}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          onClick={(e) => e.stopPropagation()} 
-                                          className="text-[10px] font-bold uppercase tracking-wider text-blue-500 hover:text-blue-600 dark:text-blue-400 transition-colors"
-                                        >
-                                          (Map 🗺️)
-                                        </a>
-                                      )}
-                                    </>
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+                                      {isCompletedToday ? "✓ Checked In" : "Pending Check-in"}
+                                    </span>
                                   )}
                                 </div>
 
@@ -526,7 +537,6 @@ export default function CirclePage() {
                 </div>
               </div>
 
-              {/* Philosophy Quote */}
               <div className="space-y-4 pt-10 pb-6 opacity-70">
                   <blockquote className="text-lg font-medium italic text-zinc-700 dark:text-zinc-300 text-center px-4">
                     "You do not rise to the level of your goals. You fall to the level of your systems."

@@ -269,23 +269,23 @@ export default function ReadingTracker({ circle, me, circleId, todayKey, members
               
               <div className="w-full h-[1px] bg-zinc-200 dark:bg-zinc-800 my-2"></div>
 
-              {/* LIVE COUNTERS (+ / -) */}
-              <div className="flex justify-around w-full">
-                <div className="flex flex-col items-center gap-2">
+                            {/* LIVE COUNTERS (+ / -) */}
+              <div className="flex items-center justify-between w-full gap-3 px-1">
+                <div className="flex flex-col items-center gap-2 flex-1">
                   <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Pages</span>
-                  <div className="flex items-center gap-3 bg-white dark:bg-zinc-950 p-2 rounded-2xl border border-zinc-200 dark:border-zinc-800">
-                     <button onClick={() => updateCount('page', -1)} className="w-10 h-10 flex items-center justify-center bg-zinc-100 dark:bg-zinc-900 rounded-xl hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors">-</button>
-                     <span className="font-mono text-2xl w-10 text-center">{me?.todayPage || 0}</span>
-                     <button onClick={() => updateCount('page', 1)} className="w-10 h-10 flex items-center justify-center bg-black text-white dark:bg-white dark:text-black rounded-xl hover:scale-105 active:scale-95 transition-all">+</button>
+                  <div className="flex items-center justify-between w-full max-w-[130px] bg-white dark:bg-zinc-950 p-1.5 rounded-2xl border border-zinc-200 dark:border-zinc-800">
+                     <button onClick={() => updateCount('page', -1)} className="w-9 h-9 flex items-center justify-center bg-zinc-100 dark:bg-zinc-900 rounded-xl hover:bg-zinc-200 dark:hover:bg-zinc-800 active:scale-95 transition-all text-lg">-</button>
+                     <span className="font-mono text-xl text-center">{me?.todayPage || 0}</span>
+                     <button onClick={() => updateCount('page', 1)} className="w-9 h-9 flex items-center justify-center bg-black text-white dark:bg-white dark:text-black rounded-xl hover:scale-105 active:scale-95 transition-all text-lg">+</button>
                   </div>
                 </div>
 
-                <div className="flex flex-col items-center gap-2">
+                <div className="flex flex-col items-center gap-2 flex-1">
                   <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Chapters</span>
-                  <div className="flex items-center gap-3 bg-white dark:bg-zinc-950 p-2 rounded-2xl border border-zinc-200 dark:border-zinc-800">
-                     <button onClick={() => updateCount('chapter', -1)} className="w-10 h-10 flex items-center justify-center bg-zinc-100 dark:bg-zinc-900 rounded-xl hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors">-</button>
-                     <span className="font-mono text-2xl w-10 text-center">{me?.todayChapter || 0}</span>
-                     <button onClick={() => updateCount('chapter', 1)} className="w-10 h-10 flex items-center justify-center bg-black text-white dark:bg-white dark:text-black rounded-xl hover:scale-105 active:scale-95 transition-all">+</button>
+                  <div className="flex items-center justify-between w-full max-w-[130px] bg-white dark:bg-zinc-950 p-1.5 rounded-2xl border border-zinc-200 dark:border-zinc-800">
+                     <button onClick={() => updateCount('chapter', -1)} className="w-9 h-9 flex items-center justify-center bg-zinc-100 dark:bg-zinc-900 rounded-xl hover:bg-zinc-200 dark:hover:bg-zinc-800 active:scale-95 transition-all text-lg">-</button>
+                     <span className="font-mono text-xl text-center">{me?.todayChapter || 0}</span>
+                     <button onClick={() => updateCount('chapter', 1)} className="w-9 h-9 flex items-center justify-center bg-black text-white dark:bg-white dark:text-black rounded-xl hover:scale-105 active:scale-95 transition-all text-lg">+</button>
                   </div>
                 </div>
               </div>

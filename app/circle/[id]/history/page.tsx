@@ -119,7 +119,7 @@ export default function SquadHistoryPage() {
                 {/* 🧠 SMART STATS UI */}
                 <div className="flex items-center gap-6 pt-2">
                   <div className="flex flex-col">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Time</span>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Workout Duration</span>
                     <span className="text-xl font-mono font-bold">{entry.durationMinutes} <span className="text-sm font-sans text-zinc-400">min</span></span>
                   </div>
 

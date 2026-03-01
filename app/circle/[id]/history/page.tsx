@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { collection, getDocs, doc, getDoc } from "firebase/firestore";
 
-// 🎯 Three '../' required here based on your file structure
 import { db } from "../../../lib/firebase"; 
 import dynamic from "next/dynamic";
 
@@ -51,8 +50,8 @@ export default function SquadHistoryPage() {
             date: data.date,
             distanceKm: data.distanceKm,
             durationMinutes: data.durationMinutes,
-            routePath: data.routePath || [], // The Breadcrumbs!
-            createdAt: data.createdAt?.toMillis() || Date.now(), // For sorting
+            routePath: data.routePath || [], 
+            createdAt: data.createdAt?.toMillis() || Date.now(), // 👈 The raw millisecond timestamp
           });
         });
       }
@@ -111,15 +110,28 @@ export default function SquadHistoryPage() {
                     </div>
                     <div>
                       <p className="font-semibold text-sm leading-none">{entry.memberName}</p>
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 mt-1">{entry.date}</p>
+                      {/* 🎯 PRECISE TIMESTAMP FORMATTING */}
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 mt-1">
+                        {new Date(entry.createdAt).toLocaleString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                          hour: "numeric",
+                          minute: "2-digit",
+                          hour12: true,
+                        })}
+                      </p>
                     </div>
                   </div>
                 </div>
 
                 {/* 🧠 SMART STATS UI */}
-                <div className="flex items-center gap-6 pt-2">
+                <div className="flex flex-wrap items-center gap-6 pt-2">
                   <div className="flex flex-col">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Workout Duration</span>
+                    {/* 🎯 DYNAMIC LABEL BASED ON HABIT */}
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">
+                      {circle?.habit === "Gym" ? "Workout Duration" : circle?.habit === "Running" ? "Run Duration" : "Duration"}
+                    </span>
                     <span className="text-xl font-mono font-bold">{entry.durationMinutes} <span className="text-sm font-sans text-zinc-400">min</span></span>
                   </div>
 

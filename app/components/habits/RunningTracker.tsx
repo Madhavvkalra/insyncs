@@ -83,30 +83,36 @@ export default function RunningTracker({ circle, me, circleId, todayKey, members
       interval = setInterval(() => setElapsedSeconds(Math.floor((Date.now() - me.workoutStartTime) / 1000)), 1000);
       requestWakeLock();
 
-      if (navigator.geolocation) {
+            if (navigator.geolocation) {
         watchIdRef.current = navigator.geolocation.watchPosition(
           (pos) => {
-            const { latitude, longitude } = pos.coords;
+            const { latitude, longitude, accuracy } = pos.coords;
+            
+            // 🛑 ANTI-CHEAT 1: Reject terrible signals.
+            // If the phone's accuracy guess is worse than 15 meters, ignore it completely.
+            if (accuracy > 15) return; 
+
             const currentCoord = { lat: latitude, lng: longitude };
 
             if (lastPosRef.current) {
               const dist = calculateDistance(lastPosRef.current.lat, lastPosRef.current.lng, latitude, longitude);
-              if (dist > 2) {
+              
+              // 🛑 ANTI-CHEAT 2: The 10-Meter Deadzone.
+              // You must physically move 10 meters away from your last footprint for it to count.
+              if (dist > 10) {
                 setDistanceMeters((prev) => prev + dist);
                 lastPosRef.current = currentCoord;
-                routePathRef.current.push(currentCoord); // 👈 NEW: Drop a breadcrumb
+                routePathRef.current.push(currentCoord);
               }
             } else {
               // First ping
               lastPosRef.current = currentCoord;
-              routePathRef.current.push(currentCoord); // 👈 NEW: Drop first breadcrumb
+              routePathRef.current.push(currentCoord);
             }
           },
           (err) => setLocationError("GPS signal lost. Make sure location is allowed."),
           { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
         );
-      } else {
-        setLocationError("GPS not supported on this device.");
       }
     }
 

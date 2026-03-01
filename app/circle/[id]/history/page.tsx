@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { collection, getDocs, doc, getDoc } from "firebase/firestore";
 
-// 🎯 Four '../' required here
+// 🎯 Three '../' required here based on your file structure
 import { db } from "../../../lib/firebase"; 
 import dynamic from "next/dynamic";
 
@@ -116,26 +116,32 @@ export default function SquadHistoryPage() {
                   </div>
                 </div>
 
-                {/* Stats */}
+                {/* 🧠 SMART STATS UI */}
                 <div className="flex items-center gap-6 pt-2">
-                  <div className="flex flex-col">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Distance</span>
-                    <span className="text-xl font-mono font-bold">{entry.distanceKm} <span className="text-sm font-sans text-zinc-400">km</span></span>
-                  </div>
                   <div className="flex flex-col">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Time</span>
                     <span className="text-xl font-mono font-bold">{entry.durationMinutes} <span className="text-sm font-sans text-zinc-400">min</span></span>
                   </div>
-                  <div className="flex flex-col">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Pace</span>
-                    <span className="text-xl font-mono font-bold">
-                      {entry.distanceKm > 0 ? (entry.durationMinutes / entry.distanceKm).toFixed(2) : 0} <span className="text-sm font-sans text-zinc-400">/km</span>
-                    </span>
-                  </div>
+
+                  {/* ONLY show Distance and Pace if it's a Running Circle */}
+                  {circle?.habit === "Running" && entry.distanceKm !== undefined && (
+                    <>
+                      <div className="flex flex-col">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Distance</span>
+                        <span className="text-xl font-mono font-bold">{entry.distanceKm} <span className="text-sm font-sans text-zinc-400">km</span></span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Pace</span>
+                        <span className="text-xl font-mono font-bold">
+                          {entry.distanceKm > 0 ? (entry.durationMinutes / entry.distanceKm).toFixed(2) : 0} <span className="text-sm font-sans text-zinc-400">/km</span>
+                        </span>
+                      </div>
+                    </>
+                  )}
                 </div>
 
                {/* 🗺️ THE LIVE MAP ENGINE */}
-                {entry.routePath && entry.routePath.length > 0 && (
+                {circle?.habit === "Running" && entry.routePath && entry.routePath.length > 0 && (
                   <div className="w-full h-40 bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 flex items-center justify-center mt-4 relative overflow-hidden">
                     <RouteMap routePath={entry.routePath} />
                   </div>

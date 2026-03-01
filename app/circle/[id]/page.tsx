@@ -150,6 +150,13 @@ export default function CirclePage() {
             {/* 4. The Leaderboard (Isolated) */}
             <SquadLeaderboard members={members} circle={circle} todayKey={todayKey} />
 
+           <button
+            onClick={() => router.push(`/circle/${id}/history`)}
+            className="w-full mt-4 py-4 rounded-2xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-sm font-bold uppercase tracking-widest hover:border-zinc-400 transition-colors"
+             >
+            View Squad History Feed
+           </button>
+
             {/* 5. The Footer */}
             <div className="space-y-4 pt-10 pb-6 opacity-70">
                 <blockquote className="text-lg font-medium italic text-zinc-700 dark:text-zinc-300 text-center px-4">

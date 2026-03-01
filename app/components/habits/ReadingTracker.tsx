@@ -8,7 +8,6 @@ export default function ReadingTracker({ circle, me, circleId, todayKey, members
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [focusError, setFocusError] = useState("");
   
-  // New States for the Book Engine
   const [bookName, setBookName] = useState(me?.todayBook || "");
   const [takeaway, setTakeaway] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -46,7 +45,7 @@ export default function ReadingTracker({ circle, me, circleId, todayKey, members
     return h > 0 ? `${h}h ${m}m ${s}s` : `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
   }
 
-  // 📡 THE "MAGIC SYNC" LISTENER
+  // 📡 THE "MAGIC SYNC" LISTENER (Starts the session)
   useEffect(() => {
     if (isSynced && currentState === "waiting_in_lobby") {
       if (circle?.currentSyncSession === todayKey && circle?.syncStartTime) {
@@ -55,7 +54,27 @@ export default function ReadingTracker({ circle, me, circleId, todayKey, members
     }
   }, [isSynced, currentState, circle?.currentSyncSession, circle?.syncStartTime, todayKey]);
 
-  // 📖 FOCUS LOCK
+  // 💥 THE NUCLEAR PENALTY LISTENER (Squad Reset)
+  useEffect(() => {
+    if (isSynced && currentState === "working_out" && circle?.syncStartTime && me?.workoutStartTime) {
+      // If the global sync timer was forced forward (because someone broke focus)
+      if (circle.syncStartTime > me.workoutStartTime) {
+        const breakerName = circle.focusBrokenBy || "A squad member";
+        const myName = me?.name || me?.email?.split('@')[0];
+        
+        // Show the penalty message only to the victims (the breaker gets a different message)
+        if (breakerName !== myName) {
+          setFocusError(`⚠ Focus broken! Timer reset because ${breakerName} exited the app.`);
+        }
+        
+        // Force local timer to match the new global reset time
+        updateDocState({ workoutStartTime: circle.syncStartTime });
+      }
+    }
+  }, [isSynced, currentState, circle?.syncStartTime, circle?.focusBrokenBy, me?.workoutStartTime]);
+
+
+  // 📖 FOCUS LOCK (With Trigger for Squad Reset)
   useEffect(() => {
     let interval: any;
 
@@ -69,10 +88,24 @@ export default function ReadingTracker({ circle, me, circleId, todayKey, members
       }
     };
 
-    const handleVisibilityChange = () => {
+    const handleVisibilityChange = async () => {
       if (document.hidden && currentState === "working_out") {
-        setFocusError("Focus broken! You left the app. Timer reset.");
-        updateDocState({ todayState: "working_out", workoutStartTime: Date.now() });
+        const now = Date.now();
+        const myName = me?.name || me?.email?.split('@')[0] || "A squad member";
+
+        if (isSynced) {
+          setFocusError("Focus broken! You left the app. Timer reset for everyone.");
+          // Drop the nuke on the global circle document
+          await setDoc(doc(db, "circles", circleId), {
+            syncStartTime: now,
+            focusBrokenBy: myName,
+            focusBrokenAt: now
+          }, { merge: true });
+        } else {
+          setFocusError("Focus broken! You left the app. Timer reset.");
+        }
+        
+        updateDocState({ todayState: "working_out", workoutStartTime: now });
       }
     };
 
@@ -90,7 +123,7 @@ export default function ReadingTracker({ circle, me, circleId, todayKey, members
         wakeLockRef.current = null;
       }
     };
-  }, [currentState, me?.workoutStartTime]);
+  }, [currentState, me?.workoutStartTime, isSynced, circleId, me?.name, me?.email]);
 
   async function updateDocState(data: any) {
     const user = auth.currentUser;
@@ -106,7 +139,7 @@ export default function ReadingTracker({ circle, me, circleId, todayKey, members
   // 🔢 LIVE COUNTER UPDATES
   async function updateCount(type: "page" | "chapter", amount: number) {
     const currentVal = type === "page" ? (me?.todayPage || 0) : (me?.todayChapter || 0);
-    const newVal = Math.max(0, currentVal + amount); // Prevent negative numbers
+    const newVal = Math.max(0, currentVal + amount); 
     
     if (type === "page") {
       await updateDocState({ todayPage: newVal });
@@ -129,7 +162,10 @@ export default function ReadingTracker({ circle, me, circleId, todayKey, members
 
   async function startSquadWorkout() {
     const startTime = Date.now();
-    await setDoc(doc(db, "circles", circleId), { currentSyncSession: todayKey, syncStartTime: startTime }, { merge: true });
+    await setDoc(doc(db, "circles", circleId), { 
+      currentSyncSession: todayKey, 
+      syncStartTime: startTime 
+    }, { merge: true });
     startWorkout(startTime);
   }
 
@@ -211,7 +247,7 @@ export default function ReadingTracker({ circle, me, circleId, todayKey, members
     <div className="w-full space-y-4">
       {focusError && (
         <div className="p-4 bg-red-100 border border-red-300 text-red-700 dark:bg-red-900/30 dark:border-red-900 dark:text-red-400 rounded-2xl text-sm font-bold text-center animate-[shake_0.5s_ease-in-out]">
-          ⚠ {focusError}
+          {focusError}
         </div>
       )}
 
@@ -269,7 +305,7 @@ export default function ReadingTracker({ circle, me, circleId, todayKey, members
               
               <div className="w-full h-[1px] bg-zinc-200 dark:bg-zinc-800 my-2"></div>
 
-                            {/* LIVE COUNTERS (+ / -) */}
+              {/* LIVE COUNTERS (+ / -) */}
               <div className="flex items-center justify-between w-full gap-3 px-1">
                 <div className="flex flex-col items-center gap-2 flex-1">
                   <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Pages</span>
@@ -290,7 +326,7 @@ export default function ReadingTracker({ circle, me, circleId, todayKey, members
                 </div>
               </div>
 
-              {/* LIVE SQUAD RADAR (Only shows if someone else is reading) */}
+              {/* LIVE SQUAD RADAR */}
               {members.filter((m: any) => m.uid !== me?.uid && (m.todayState === 'working_out' || m.todayState === 'waiting_in_lobby')).length > 0 && (
                 <div className="w-full mt-4 space-y-2">
                   <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 pl-1 flex items-center gap-2">
@@ -357,7 +393,7 @@ export default function ReadingTracker({ circle, me, circleId, todayKey, members
           </div>
         ) : (
           <div className="space-y-4">
-             {/* THE SETUP PHASE: Book Selection */}
+             {/* THE SETUP PHASE */}
              <div className="w-full p-5 bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-200 dark:border-zinc-800 space-y-3">
                <label className="text-sm font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400">
                   What are you reading today?

@@ -5,8 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { collection, getDocs, doc, getDoc } from "firebase/firestore";
 
 // 🎯 Four '../' required here
-import { db } from "../../../../lib/firebase"; 
-
+import { db } from "../../../lib/firebase"; 
 
 export default function SquadHistoryPage() {
   const params = useParams();

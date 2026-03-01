@@ -120,7 +120,7 @@ export default function CirclePage() {
         {isWaitingForSquad ? (
           /* 2. The Waiting Room (Isolated) */
           <WaitingRoom id={id} />
-        ) : (
+                ) : (
           <div className="space-y-8">
             <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm space-y-4">
               
@@ -143,8 +143,9 @@ export default function CirclePage() {
                todayKey={todayKey} 
                checkedInToday={checkedInToday} 
                standardCheckIn={standardCheckIn}
-               members={members} // 👈 JUST ADD THIS ONE LINE
+               members={members} 
               />
+            </div> {/* 👈 THE MISSING TAG WAS RIGHT HERE! */}
 
             {/* 4. The Leaderboard (Isolated) */}
             <SquadLeaderboard members={members} circle={circle} todayKey={todayKey} />

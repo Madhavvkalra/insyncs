@@ -9,9 +9,22 @@ export default function GymTracker({ circle, me, circleId, todayKey }: any) {
   const [locationError, setLocationError] = useState("");
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
-  const isNewDay = me?.todayDate !== todayKey;
-  const currentState = isNewDay ? 'none' : (me?.todayState || 'none');
   const hasLockedLocation = !!me?.lockedLocation;
+
+  // 🕒 THE MIDNIGHT REFEREE LOGIC
+  const isNewDay = me?.todayDate !== todayKey;
+  let currentState = me?.todayState || 'none';
+  
+  if (isNewDay) {
+    if (currentState === 'working_out') {
+      // Session Protection: They started yesterday, finishing today. 
+      // Keep the timer running! Do not wipe the UI.
+      currentState = 'working_out';
+    } else {
+      // If they were 'completed' yesterday, or 'verified' but forgot to start... wipe it.
+      currentState = 'none';
+    }
+  }
 
   function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
     const R = 6371e3; 
@@ -84,6 +97,7 @@ export default function GymTracker({ circle, me, circleId, todayKey }: any) {
           setIsLocating(false);
           return;
         }
+        // Force the date update so the state aligns with today
         updateDocState({ todayDate: todayKey, todayState: 'verified', todayDuration: 0 });
         setIsLocating(false);
       },
@@ -93,7 +107,7 @@ export default function GymTracker({ circle, me, circleId, todayKey }: any) {
   }
 
   async function startWorkout() {
-    updateDocState({ todayState: 'working_out', workoutStartTime: Date.now() });
+    updateDocState({ todayState: 'working_out', workoutStartTime: Date.now(), todayDate: todayKey });
   }
 
   async function endWorkout() {
@@ -112,7 +126,8 @@ export default function GymTracker({ circle, me, circleId, todayKey }: any) {
       todayState: 'completed',
       todayDuration: durationMinutes,
       streak: newStreak,
-      lastCheckin: todayKey,
+      lastCheckin: todayKey, // Locks the check-in to today
+      todayDate: todayKey,   // Ensures the UI registers the completion today
       cycleDay: newCycleDay,
       completedCycles: newCompletedCycles,
     });
@@ -149,8 +164,7 @@ export default function GymTracker({ circle, me, circleId, todayKey }: any) {
 
         {hasLockedLocation && (
           <a 
-            // FIXED URL FORMAT HERE
-            href={`https://www.google.com/maps?q=${me.lockedLocation.lat},${me.lockedLocation.lng}`}
+            href={`https://www.google.com/maps/search/?api=1&query=${me.lockedLocation.lat},${me.lockedLocation.lng}`}
             target="_blank"
             rel="noopener noreferrer"
             className="text-[10px] font-bold uppercase tracking-wider text-blue-500 hover:text-blue-600 dark:text-blue-400 transition-colors flex items-center justify-center gap-1.5"

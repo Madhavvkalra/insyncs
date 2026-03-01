@@ -134,12 +134,10 @@ export default function SquadHistoryPage() {
                   </div>
                 </div>
 
-                {/* Map Placeholder (We build this next!) */}
+               {/* 🗺️ THE LIVE MAP ENGINE */}
                 {entry.routePath && entry.routePath.length > 0 && (
-                  <div className="w-full h-32 bg-zinc-100 dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 flex items-center justify-center mt-2 relative overflow-hidden">
-                    <span className="text-xs font-bold uppercase tracking-widest text-zinc-400 z-10">Map rendering engine required</span>
-                    {/* Just a cool visual pattern to show where the map will go */}
-                    <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#000_1px,transparent_1px)] dark:bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px]"></div>
+                  <div className="w-full h-40 bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 flex items-center justify-center mt-4 relative overflow-hidden">
+                    <RouteMap routePath={entry.routePath} />
                   </div>
                 )}
               </div>

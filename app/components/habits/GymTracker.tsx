@@ -10,6 +10,7 @@ export default function GymTracker({ circle, me, circleId, todayKey }: any) {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
   const hasLockedLocation = !!me?.lockedLocation;
+  const isSynced = circle?.syncTimings === true; // 👈 NEW: The Engine checks the rules
 
   // 🕒 THE MIDNIGHT REFEREE LOGIC
   const isNewDay = me?.todayDate !== todayKey;
@@ -17,12 +18,9 @@ export default function GymTracker({ circle, me, circleId, todayKey }: any) {
   
   if (isNewDay) {
     if (currentState === 'working_out') {
-      // Session Protection: They started yesterday, finishing today. 
-      // Keep the timer running! Do not wipe the UI.
-      currentState = 'working_out';
+      currentState = 'working_out'; // Protect overnight sessions
     } else {
-      // If they were 'completed' yesterday, or 'verified' but forgot to start... wipe it.
-      currentState = 'none';
+      currentState = 'none'; // Wipe dead lobbies or forgotten check-ins
     }
   }
 
@@ -39,6 +37,16 @@ export default function GymTracker({ circle, me, circleId, todayKey }: any) {
     const s = totalSeconds % 60;
     return h > 0 ? `${h}h ${m}m ${s}s` : `${m}m ${s}s`;
   }
+
+  // 📡 THE "MAGIC SYNC" LISTENER
+  // If someone else hits "Start Squad Session", pull me into the workout automatically!
+  useEffect(() => {
+    if (isSynced && currentState === 'waiting_in_lobby') {
+      if (circle?.currentSyncSession === todayKey && circle?.syncStartTime) {
+        startWorkout(circle.syncStartTime);
+      }
+    }
+  }, [isSynced, currentState, circle?.currentSyncSession, circle?.syncStartTime, todayKey]);
 
   useEffect(() => {
     let interval: any;
@@ -97,7 +105,6 @@ export default function GymTracker({ circle, me, circleId, todayKey }: any) {
           setIsLocating(false);
           return;
         }
-        // Force the date update so the state aligns with today
         updateDocState({ todayDate: todayKey, todayState: 'verified', todayDuration: 0 });
         setIsLocating(false);
       },
@@ -106,8 +113,26 @@ export default function GymTracker({ circle, me, circleId, todayKey }: any) {
     );
   }
 
-  async function startWorkout() {
-    updateDocState({ todayState: 'working_out', workoutStartTime: Date.now(), todayDate: todayKey });
+  // 🎮 MULTIPLAYER LOBBY FUNCTIONS
+  async function enterLobby() {
+    updateDocState({ todayState: 'waiting_in_lobby', todayDate: todayKey });
+  }
+
+  async function startSquadWorkout() {
+    const startTime = Date.now();
+    // 1. Ignite the Circle (This wakes up anyone waiting in the lobby)
+    await setDoc(doc(db, "circles", circleId), {
+      currentSyncSession: todayKey,
+      syncStartTime: startTime
+    }, { merge: true });
+    
+    // 2. Start my own workout
+    startWorkout(startTime);
+  }
+
+  async function startWorkout(overrideStartTime?: number) {
+    const startTime = overrideStartTime || Date.now();
+    updateDocState({ todayState: 'working_out', workoutStartTime: startTime, todayDate: todayKey });
   }
 
   async function endWorkout() {
@@ -126,8 +151,8 @@ export default function GymTracker({ circle, me, circleId, todayKey }: any) {
       todayState: 'completed',
       todayDuration: durationMinutes,
       streak: newStreak,
-      lastCheckin: todayKey, // Locks the check-in to today
-      todayDate: todayKey,   // Ensures the UI registers the completion today
+      lastCheckin: todayKey, 
+      todayDate: todayKey,   
       cycleDay: newCycleDay,
       completedCycles: newCompletedCycles,
     });
@@ -164,7 +189,7 @@ export default function GymTracker({ circle, me, circleId, todayKey }: any) {
 
         {hasLockedLocation && (
           <a 
-            href={`https://www.google.com/maps/search/?api=1&query=${me.lockedLocation.lat},${me.lockedLocation.lng}`}
+            href={`https://www.google.com/maps?q=${me.lockedLocation.lat},${me.lockedLocation.lng}`}
             target="_blank"
             rel="noopener noreferrer"
             className="text-[10px] font-bold uppercase tracking-wider text-blue-500 hover:text-blue-600 dark:text-blue-400 transition-colors flex items-center justify-center gap-1.5"
@@ -202,7 +227,9 @@ export default function GymTracker({ circle, me, circleId, todayKey }: any) {
         ) : currentState === 'working_out' ? (
           <div className="space-y-3">
             <div className="w-full flex flex-col items-center justify-center gap-1 rounded-2xl py-6 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
-              <span className="text-xs font-bold uppercase tracking-widest text-zinc-500 animate-pulse">Session Active</span>
+              <span className="text-xs font-bold uppercase tracking-widest text-zinc-500 animate-pulse">
+                {isSynced ? "Synced Session Active" : "Session Active"}
+              </span>
               <span className="text-4xl font-mono font-bold tracking-tight">{formatTime(elapsedSeconds)}</span>
             </div>
             <button
@@ -212,12 +239,31 @@ export default function GymTracker({ circle, me, circleId, todayKey }: any) {
               Stop & Checkout
             </button>
           </div>
+        ) : currentState === 'waiting_in_lobby' ? (
+          <div className="space-y-3">
+            <div className="w-full flex flex-col items-center justify-center gap-3 rounded-2xl py-6 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
+              <div className="relative flex items-center justify-center w-12 h-12">
+                <div className="absolute inset-0 rounded-full border-4 border-blue-500/30 animate-[ping_2s_cubic-bezier(0,0,0.2,1)_infinite]"></div>
+                <div className="relative z-10 w-4 h-4 bg-blue-500 rounded-full"></div>
+              </div>
+              <div className="text-center">
+                <span className="text-sm font-bold uppercase tracking-widest text-zinc-600 dark:text-zinc-400 block mb-1">In Lobby</span>
+                <span className="text-xs text-zinc-500">Waiting for squad...</span>
+              </div>
+            </div>
+            <button
+              onClick={startSquadWorkout}
+              className="w-full flex items-center justify-center gap-2 rounded-2xl bg-black py-4 text-white text-lg font-bold shadow-md transition-all active:scale-95 hover:-translate-y-1 dark:bg-white dark:text-black"
+            >
+              🚀 Start Squad Session Now
+            </button>
+          </div>
         ) : currentState === 'verified' ? (
           <button
-            onClick={startWorkout}
+            onClick={isSynced ? enterLobby : () => startWorkout()}
             className="w-full flex items-center justify-center gap-2 rounded-2xl bg-black py-4 text-white text-lg font-bold shadow-md transition-all active:scale-95 hover:-translate-y-1 dark:bg-white dark:text-black"
           >
-            ▶ Start Workout
+            {isSynced ? "Enter Waiting Lobby" : "▶ Start Workout"}
           </button>
         ) : (
           <button

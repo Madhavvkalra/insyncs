@@ -14,7 +14,7 @@ export default function CreateCirclePage() {
   const [isLoading, setIsLoading] = useState(false);
   
   const [name, setName] = useState("");
-  const [habit, setHabit] = useState("Gym");
+  const [habit, setHabit] = useState(""); 
   const [duration, setDuration] = useState(21);
   const [syncTimings, setSyncTimings] = useState(false); // 👈 NEW: The Sync Toggle State
   
@@ -181,7 +181,7 @@ export default function CreateCirclePage() {
             <div className="pt-4">
               <button
                 onClick={handleCreateCircle}
-                disabled={!name.trim() || isLoading}
+                disabled={!name.trim() || !habit || isLoading}
                 className="w-full flex items-center justify-center gap-2 rounded-2xl bg-black py-4 text-white font-medium shadow-[0_8px_30px_rgb(0,0,0,0.12)] transition-all duration-200 hover:bg-zinc-800 hover:-translate-y-1 hover:shadow-[0_8px_40px_rgb(0,0,0,0.2)] active:scale-95 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 dark:bg-white dark:text-black dark:shadow-[0_8px_30px_rgba(255,255,255,0.15)] dark:hover:bg-zinc-200"
               >
                 {isLoading ? <span className="animate-pulse">Creating...</span> : "Create & Get Invite Link"}

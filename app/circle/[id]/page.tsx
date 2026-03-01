@@ -146,7 +146,6 @@ export default function CirclePage() {
                members={members} // 👈 JUST ADD THIS ONE LINE
               />
 
-
             {/* 4. The Leaderboard (Isolated) */}
             <SquadLeaderboard members={members} circle={circle} todayKey={todayKey} />
 

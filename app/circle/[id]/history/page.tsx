@@ -4,8 +4,9 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { collection, getDocs, doc, getDoc } from "firebase/firestore";
 
-// 🎯 FIXED PATH: Four '../' to get out of the history folder
+// 🎯 Four '../' required here
 import { db } from "../../../../lib/firebase"; 
+
 
 export default function SquadHistoryPage() {
   const params = useParams();

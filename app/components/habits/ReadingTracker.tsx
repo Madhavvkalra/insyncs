@@ -45,6 +45,17 @@ export default function ReadingTracker({ circle, me, circleId, todayKey, members
     return h > 0 ? `${h}h ${m}m ${s}s` : `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
   }
 
+  // ⏱️ AUTO-DISMISS TOAST NOTIFICATION
+  // Automatically clears any error message after 5 seconds
+  useEffect(() => {
+    if (focusError) {
+      const timer = setTimeout(() => {
+        setFocusError("");
+      }, 5000);
+      return () => clearTimeout(timer); // Cleanup if the component unmounts
+    }
+  }, [focusError]);
+
   // 📡 THE "MAGIC SYNC" LISTENER (Starts the session)
   useEffect(() => {
     if (isSynced && currentState === "waiting_in_lobby") {
@@ -244,9 +255,11 @@ export default function ReadingTracker({ circle, me, circleId, todayKey, members
   }
 
   return (
-    <div className="w-full space-y-4">
+    <div className="w-full space-y-4 relative">
+      
+      {/* 🔔 THE FLOATING IN-APP NOTIFICATION */}
       {focusError && (
-        <div className="p-4 bg-red-100 border border-red-300 text-red-700 dark:bg-red-900/30 dark:border-red-900 dark:text-red-400 rounded-2xl text-sm font-bold text-center animate-[shake_0.5s_ease-in-out]">
+        <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-[100] w-[90%] max-w-[350px] p-4 bg-red-100 border-2 border-red-300 text-red-700 dark:bg-red-950 dark:border-red-900 dark:text-red-400 rounded-2xl text-sm font-bold text-center shadow-[0_10px_40px_rgba(239,68,68,0.3)] animate-[shake_0.5s_ease-in-out]">
           {focusError}
         </div>
       )}

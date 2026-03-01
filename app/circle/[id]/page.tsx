@@ -3,13 +3,10 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { doc, onSnapshot, collection, setDoc } from "firebase/firestore";
-import { db, auth } from "../../../lib/firebase"; 
-
-// 🎯 We added one more '../' to each of these!
-import HabitRouter from "../../../components/habits/HabitRouter";
-import SquadLeaderboard from "../../../components/SquadLeaderboard"; 
-import WaitingRoom from "../../../components/waitingRoom"; 
-
+import { db, auth } from "../../lib/firebase"; 
+import HabitRouter from "../../components/habits/HabitRouter";
+import SquadLeaderboard from "../../components/SquadLeaderboard"; 
+import WaitingRoom from "../../components/waitingRoom"; 
 
 export default function CirclePage() {
   const params = useParams();

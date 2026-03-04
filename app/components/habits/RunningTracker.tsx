@@ -4,14 +4,15 @@ import { useState, useEffect, useRef } from "react";
 import { doc, setDoc, addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "../../lib/firebase";
 
-// ... (calculateDistance remains the same)
+// 📍 Drop your calculateDistance function here
+// ...
 
 export default function RunningTracker({ circle, me, circleId, todayKey, members }: any) {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [distanceMeters, setDistanceMeters] = useState(0);
   const [locationError, setLocationError] = useState("");
   
-  // 🕒 Track exactly when we joined the lobby to ignore old sync signals
+  // 🕒 Track exactly when we joined the lobby
   const [lobbyEntryTime, setLobbyEntryTime] = useState<number | null>(null);
 
   const watchIdRef = useRef<number | null>(null);
@@ -36,7 +37,6 @@ export default function RunningTracker({ circle, me, circleId, todayKey, members
       m.todayState !== "completed"
   );
   
-  // Squad is ready only if everyone is in the lobby/running and there's more than just you
   const isSquadReady = members && members.length > 1 && unreadyMembers.length === 0;
 
   function formatTime(totalSeconds: number) {
@@ -48,7 +48,6 @@ export default function RunningTracker({ circle, me, circleId, todayKey, members
   // 📡 THE "FRESH SYNC" LISTENER
   useEffect(() => {
     if (isSynced && currentState === "waiting_in_lobby" && lobbyEntryTime) {
-      // 🛡️ ONLY start if the syncStartTime is NEWER than when we joined the lobby
       if (
         circle?.currentSyncSession === todayKey && 
         circle?.syncStartTime && 
@@ -59,7 +58,8 @@ export default function RunningTracker({ circle, me, circleId, todayKey, members
     }
   }, [isSynced, currentState, circle?.currentSyncSession, circle?.syncStartTime, todayKey, lobbyEntryTime]);
 
-  // ... (GPS Engine and Broadcaster effects remain the same)
+  // 📍 Drop your GPS Engine and Broadcaster effects here
+  // ...
 
   async function updateDocState(data: any) {
     const user = auth.currentUser;
@@ -70,7 +70,7 @@ export default function RunningTracker({ circle, me, circleId, todayKey, members
   // 🎮 LOBBY FUNCTIONS
   async function enterLobby() {
     setLocationError("");
-    setLobbyEntryTime(Date.now()); // 🔒 Set our entry timestamp locally
+    setLobbyEntryTime(Date.now());
     updateDocState({ 
       todayState: "waiting_in_lobby", 
       todayDate: todayKey,
@@ -80,10 +80,9 @@ export default function RunningTracker({ circle, me, circleId, todayKey, members
   }
 
   async function startSquadWorkout() {
-    if (!isSquadReady) return; // Double-check lock
+    if (!isSquadReady) return; 
     
     const startTime = Date.now();
-    // Update the circle doc so everyone's listener triggers
     await setDoc(doc(db, "circles", circleId), { 
       currentSyncSession: todayKey, 
       syncStartTime: startTime 
@@ -104,5 +103,60 @@ export default function RunningTracker({ circle, me, circleId, todayKey, members
     });
   }
 
-  // ... (endWorkout and Return remains the same)
+  async function endWorkout() {
+    if (watchIdRef.current) navigator.geolocation.clearWatch(watchIdRef.current);
+    updateDocState({ todayState: "completed", todayDate: todayKey });
+  }
+
+  // ✅ THIS FIXES YOUR ERROR: The component MUST explicitly return JSX elements here.
+  return (
+    <div className="flex flex-col items-center justify-center p-6 space-y-6 bg-zinc-900 rounded-xl text-white">
+      {/* State: NONE */}
+      {currentState === "none" && (
+        <button 
+          onClick={isSynced ? enterLobby : () => startWorkout()} 
+          className="px-6 py-3 bg-white text-black font-bold rounded-lg w-full"
+        >
+          {isSynced ? "Enter Lobby" : "Start Run"}
+        </button>
+      )}
+
+      {/* State: LOBBY */}
+      {currentState === "waiting_in_lobby" && (
+        <div className="text-center w-full space-y-4">
+          <p className="text-lg font-bold">Waiting in Lobby</p>
+          {isSquadReady ? (
+            <button onClick={startSquadWorkout} className="px-6 py-3 bg-red-600 text-white font-bold rounded-lg w-full">
+              NUCLEAR LAUNCH (Start Squad Run)
+            </button>
+          ) : (
+            <div className="text-sm text-zinc-400">
+              Waiting for {unreadyMembers.length} member(s)...
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* State: WORKING OUT */}
+      {currentState === "working_out" && (
+        <div className="text-center w-full space-y-4">
+          <p className="text-4xl font-mono text-green-400">{formatTime(elapsedSeconds)}</p>
+          <p className="text-xl text-zinc-300">{distanceMeters} Meters</p>
+          <button onClick={endWorkout} className="px-6 py-3 bg-zinc-700 text-white font-bold rounded-lg w-full">
+            End Run
+          </button>
+        </div>
+      )}
+
+      {/* State: COMPLETED */}
+      {currentState === "completed" && (
+        <div className="text-center text-green-500 font-bold">
+          Run Completed for Today.
+        </div>
+      )}
+
+      {/* Error Output */}
+      {locationError && <p className="text-red-500 text-sm mt-2">{locationError}</p>}
+    </div>
+  );
 }

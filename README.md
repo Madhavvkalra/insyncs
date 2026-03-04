@@ -1,36 +1,30 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ⚡ InSyncs
+### The High-Stakes Social Accountability Engine.
 
-## Getting Started
+**Consistency isn't a solo journey—it's a squad mission.** InSyncs is a "No Bullshit" productivity platform designed to enforce deep work and physical activity through collective consequences.
 
-First, run the development server:
+---
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## ☢️ The "Nuclear" Features
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- **The Nuclear Squad Reset:** If any member leaves the app during a synchronized Focus session (Reading or Meditation), the timer resets to **ZERO** for the entire squad. 
+- **Anti-Drift GPS Engine:** A professional-grade running tracker that filters GPS "phantom distance" and requires 10m movement pings to ensure honest mileage.
+- **Proof of Knowledge (PoK):** Reading sessions require a mandatory 1-sentence takeaway. No takeaway = no credit for the session.
+- **Live Squad Radar:** Real-time Firebase "heartbeats" broadcasting distance, pace, and progress every 5 seconds to all active squad members.
+- **Pure Focus Mode:** Locked dark-mode interface with a "Do Not Switch Apps" mandate, enforced by the visibility API.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 🛠️ Tech Stack
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **Framework:** [Next.js 14](https://nextjs.org/) (App Router)
+- **Database/Auth:** [Firebase](https://firebase.google.com/) (Firestore & Authentication)
+- **Styling:** [Tailwind CSS](https://tailwindcss.com/)
+- **Animations:** [Framer Motion](https://www.framer.com/motion/)
 
-## Learn More
+## 🚀 Local Setup
 
-To learn more about Next.js, take a look at the following resources:
+1. **Clone the repository:**
+   ```bash
+   git clone [https://github.com/Madhav5074/insyncs.git](https://github.com/Madhav5074/insyncs.git)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.

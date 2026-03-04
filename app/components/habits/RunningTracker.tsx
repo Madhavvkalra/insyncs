@@ -41,6 +41,44 @@ export default function RunningTracker({ circle, me, circleId, todayKey, members
     }
   }
 
+  // 🔒 THE ANTI-ESCAPE LOCK REFS
+  const validExitRef = useRef(false);
+  const stateRef = useRef(currentState);
+  
+  // Keep the stateRef perfectly synced with the current state for the unmount check
+  useEffect(() => {
+    stateRef.current = currentState;
+  }, [currentState]);
+
+  // ☢️ THE ESCAPE PENALTY (Triggers when component unmounts unexpectedly)
+  useEffect(() => {
+    return () => {
+      // If the component unmounts and they didn't explicitly click "Finish Run"
+      if (!validExitRef.current && (stateRef.current === "working_out" || stateRef.current === "waiting_in_lobby")) {
+        console.log("🚨 ILLEGAL NAVIGATION DETECTED: Triggering Reset 🚨");
+        
+        const user = auth.currentUser;
+        if (user) {
+          // 1. Wipe their personal progress instantly
+          setDoc(doc(db, "circles", circleId, "members", user.uid), {
+            todayState: "none",
+            todayDistance: 0,
+            todayPace: 0,
+            workoutStartTime: null
+          }, { merge: true });
+        }
+
+        // 2. THE NUCLEAR SQUAD RESET
+        if (isSynced) {
+          setDoc(doc(db, "circles", circleId), {
+            syncStartTime: null,
+            currentSyncSession: null
+          }, { merge: true });
+        }
+      }
+    };
+  }, [circleId, isSynced]);
+
   // 🚨 STRICT LOBBY LOGIC
   const unreadyMembers = (members || []).filter(
     (m: any) =>
@@ -66,7 +104,7 @@ export default function RunningTracker({ circle, me, circleId, todayKey, members
     }
   }, [isSynced, currentState, circle?.currentSyncSession, circle?.syncStartTime, todayKey]);
 
-  // 🏃 THE GPS ENGINE (Now Actually Real-Time)
+  // 🏃 THE GPS ENGINE
   useEffect(() => {
     let interval: any;
 
@@ -78,7 +116,6 @@ export default function RunningTracker({ circle, me, circleId, todayKey, members
           (pos) => {
             const { latitude, longitude, accuracy } = pos.coords;
             
-            // 🔧 FIX 1: Relaxed accuracy threshold so standard phones don't get rejected
             if (accuracy > 40) return; 
 
             const currentCoord = { lat: latitude, lng: longitude };
@@ -86,7 +123,6 @@ export default function RunningTracker({ circle, me, circleId, todayKey, members
             if (lastPosRef.current) {
               const dist = calculateDistance(lastPosRef.current.lat, lastPosRef.current.lng, latitude, longitude);
               
-              // 🔧 FIX 2: Lowered the deadzone from 10m to 3m so the UI ticks up smoothly
               if (dist > 3) {
                 setDistanceMeters((prev) => prev + dist);
                 lastPosRef.current = currentCoord;
@@ -98,7 +134,7 @@ export default function RunningTracker({ circle, me, circleId, todayKey, members
             }
           },
           (err) => setLocationError("GPS signal lost. Try moving to a clearer area."),
-          { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 } // Faster timeout for quicker recovery
+          { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
         );
       } else {
         setLocationError("GPS not supported on this device.");
@@ -113,12 +149,11 @@ export default function RunningTracker({ circle, me, circleId, todayKey, members
     };
   }, [currentState, me?.workoutStartTime]);
 
-  // Keep the vault updated with your freshest numbers without restarting the interval
   useEffect(() => {
     latestStatsRef.current = { distance: distanceMeters, elapsed: elapsedSeconds };
   }, [distanceMeters, elapsedSeconds]);
 
-  // 📡 THE LIVE BROADCASTER (Sped up to 3 seconds)
+  // 📡 THE LIVE BROADCASTER
   useEffect(() => {
     let syncInterval: any;
     
@@ -133,7 +168,7 @@ export default function RunningTracker({ circle, me, circleId, todayKey, members
           todayDistance: dist,
           todayPace: currentPace
         });
-      }, 3000); // 🔧 FIX 3: Broadcast to the squad every 3 seconds for tighter syncing
+      }, 3000); 
     }
     
     return () => clearInterval(syncInterval);
@@ -180,6 +215,8 @@ export default function RunningTracker({ circle, me, circleId, todayKey, members
   }
 
   async function endWorkout() {
+    validExitRef.current = true; // ✅ Mocks the exit as a legal completion
+
     if (!me?.workoutStartTime) return;
     const user = auth.currentUser;
     if (!user) return;

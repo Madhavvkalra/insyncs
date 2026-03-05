@@ -23,6 +23,43 @@ export default function MeditationTracker({ circle, me, circleId, todayKey, memb
     }
   }
 
+  // 🔒 THE ANTI-ESCAPE LOCK REFS
+  const validExitRef = useRef(false);
+  const stateRef = useRef(currentState);
+  
+  // Keep the stateRef perfectly synced with the current state for the unmount check
+  useEffect(() => {
+    stateRef.current = currentState;
+  }, [currentState]);
+
+  // ☢️ THE ESCAPE PENALTY (Triggers when component unmounts unexpectedly)
+  useEffect(() => {
+    return () => {
+      // If the component unmounts and they didn't explicitly click "Finish Session"
+      if (!validExitRef.current && (stateRef.current === "working_out" || stateRef.current === "waiting_in_lobby")) {
+        console.log("🚨 ILLEGAL NAVIGATION DETECTED: Triggering Reset 🚨");
+        
+        const user = auth.currentUser;
+        if (user) {
+          // 1. Wipe their personal progress instantly
+          setDoc(doc(db, "circles", circleId, "members", user.uid), {
+            todayState: "none",
+            workoutStartTime: null,
+            todayDuration: 0
+          }, { merge: true });
+        }
+
+        // 2. THE NUCLEAR SQUAD RESET
+        if (isSynced) {
+          setDoc(doc(db, "circles", circleId), {
+            syncStartTime: null,
+            currentSyncSession: null
+          }, { merge: true });
+        }
+      }
+    };
+  }, [circleId, isSynced]);
+
   // 🚨 STRICT LOBBY LOGIC
   const unreadyMembers = (members || []).filter(
     (m: any) =>
@@ -40,7 +77,6 @@ export default function MeditationTracker({ circle, me, circleId, todayKey, memb
   }
 
   // ⏱️ AUTO-DISMISS TOAST NOTIFICATION
-  // Automatically clears any error message after 5 seconds
   useEffect(() => {
     if (focusError) {
       const timer = setTimeout(() => {
@@ -59,26 +95,23 @@ export default function MeditationTracker({ circle, me, circleId, todayKey, memb
     }
   }, [isSynced, currentState, circle?.currentSyncSession, circle?.syncStartTime, todayKey]);
 
-  // 💥 THE NUCLEAR PENALTY LISTENER (Squad Reset)
+  // 💥 THE NUCLEAR PENALTY LISTENER (Squad Reset via visibility change)
   useEffect(() => {
     if (isSynced && currentState === "working_out" && circle?.syncStartTime && me?.workoutStartTime) {
-      // If the global sync timer was forced forward (because someone broke focus)
       if (circle.syncStartTime > me.workoutStartTime) {
         const breakerName = circle.focusBrokenBy || "A squad member";
         const myName = me?.name || me?.email?.split('@')[0];
         
-        // Show the penalty message only to the victims
         if (breakerName !== myName) {
           setFocusError(`⚠ Focus broken! Timer reset because ${breakerName} exited the app.`);
         }
         
-        // Force local timer to match the new global reset time
         updateDocState({ workoutStartTime: circle.syncStartTime });
       }
     }
   }, [isSynced, currentState, circle?.syncStartTime, circle?.focusBrokenBy, me?.workoutStartTime]);
 
-  // 🧘‍♂️ THE FOCUS LOCK (With Trigger for Squad Reset)
+  // 🧘‍♂️ THE FOCUS LOCK
   useEffect(() => {
     let interval: any;
 
@@ -99,7 +132,6 @@ export default function MeditationTracker({ circle, me, circleId, todayKey, memb
 
         if (isSynced) {
           setFocusError("Focus broken! You left the app. Timer reset for everyone.");
-          // Drop the nuke on the global circle document
           await setDoc(doc(db, "circles", circleId), {
             syncStartTime: now,
             focusBrokenBy: myName,
@@ -109,7 +141,6 @@ export default function MeditationTracker({ circle, me, circleId, todayKey, memb
           setFocusError("Focus broken! Your timer has been reset to 0:00.");
         }
         
-        // INSTANT PENALTY: Restart local timer
         updateDocState({ todayState: "working_out", workoutStartTime: now });
       }
     };
@@ -161,15 +192,17 @@ export default function MeditationTracker({ circle, me, circleId, todayKey, memb
   }
 
   async function endWorkout() {
+    validExitRef.current = true; // ✅ Mocks the exit as a legal completion
+
     if (!me?.workoutStartTime) return;
     const user = auth.currentUser;
     if (!user) return;
 
     const durationMinutes = Math.round((Date.now() - me.workoutStartTime) / 60000);
     
-    // The Anti-Cheat: If they fail, get reset to 0, and try to hit "Finish" instantly
     if (durationMinutes < 1) {
       setFocusError("Meditation too short to log. Keep focusing.");
+      validExitRef.current = false; // ❌ Reset the flag because they failed to complete it
       return;
     }
     
@@ -182,7 +215,6 @@ export default function MeditationTracker({ circle, me, circleId, todayKey, memb
       newCycleDay = 0;
     }
 
-    // 1. Update Daily Snapshot
     await updateDocState({
       todayState: "completed",
       todayDuration: durationMinutes,
@@ -193,7 +225,6 @@ export default function MeditationTracker({ circle, me, circleId, todayKey, memb
       completedCycles: newCompletedCycles,
     });
 
-    // 2. The History Ledger
     await addDoc(collection(db, "circles", circleId, "members", user.uid, "history"), {
       date: todayKey,
       durationMinutes: durationMinutes,
